@@ -31,7 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define HIGH 1
+#define LOW 0
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -56,7 +57,13 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
+void BlinkGreenLED()
+{
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, LOW);
+	HAL_Delay(1000);
+	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, HIGH);
+	HAL_Delay(1000);
+}
 /* USER CODE END 0 */
 
 /**
@@ -90,15 +97,19 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  uint8_t ledState = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) > 1) 			//Read value on PA8
+	  {
+		  ledState = !ledState;
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, !ledState);	// Change GreenLED state
+	  }
     /* USER CODE END WHILE */
-
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
