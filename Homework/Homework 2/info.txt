@@ -1,0 +1,5 @@
+2.A
+
+Green LED on D13 = PA5
+Microphone (SND_IN) = PA8
+Can't found External Interrupt
