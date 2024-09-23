@@ -3,3 +3,16 @@
 Green LED on D13 = PA5
 Microphone (SND_IN) = PA8
 Can't found External Interrupt
+
+2.B
+https://haelectro.com/comment-creer-facilement-un-signal-pwm-sur-stm32/
+We configure the Timer TIM1 like a PWM generator on Channel1
+We want 1Hz so we need to follow the next formula : 
+Fpwm = Fclk / ((1+period) * (1+prescaler))
+	- Fpwm = frequency of the PWM signal (1Hz)
+	- Fclk = Clock Frequency (84 MHz)
+	- period = Counter of the timer
+	- prescaler = Prescaler of the timer
+((1+period) * (1+prescaler)) needs to be at 1Hz
+the period and the prescaler needs to be under their maximum value so 65535
+So we take a period of 8399 and a period of 9999
