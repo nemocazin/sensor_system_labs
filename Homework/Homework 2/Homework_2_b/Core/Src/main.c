@@ -94,26 +94,20 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  uint32_t 	CH1_DC = 0;
-  uint8_t	stateLED = 0;
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);	// Start PWM
+  uint8_t led_state = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  while(CH1_DC < 65535)
-	 {
-		 if(CH1_DC > 65535)
-		 {
-			 CH1_DC = 0;
-			 stateLED = !stateLED;
-		 }
-		 TIM1->CCR1 = CH1_DC;
-		 CH1_DC += 70;
-		 HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, stateLED);
-	 }
+	  // Read PWM  State
+	  if (__HAL_TIM_GET_COMPARE(&htim1, TIM_CHANNEL_1) > __HAL_TIM_GET_COUNTER(&htim1))
+	  {
+		  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, led_state); // Change state of GreenLED
+		  led_state = !led_state;
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -188,9 +182,9 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 9999;
+  htim1.Init.Prescaler = 8399;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 8399;
+  htim1.Init.Period = 9999;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -214,7 +208,7 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 4999;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
