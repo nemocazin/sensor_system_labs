@@ -31,9 +31,6 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define HIGH 1
-#define LOW 0
-
 #define BLUE_BUTTON GPIO_PIN_13
 #define GREEN_LED GPIO_PIN_5
 /* USER CODE END PD */

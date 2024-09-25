@@ -1,0 +1,41 @@
+IN THE .ioc FILE
+Config the pin as an GPIO_EXTI
+Go to NVIC Tab
+Enable "EXTI line[15:10] interrupts"
+If we need to make multiple priority :
+	- Change the number of bits of the "Priority Group"
+	- Change the "Preemption Priority" of the line "EXTI line[15:10] interrupts"
+Go to GPIO tab
+Click on the PIN you want with an interruption
+Change the "GPIO mode" with the one you want (rising edge or falling edge or both)
+Save the file to apply the modifications
+
+TO CHECK GO IN THE stm32f4xx_it.c FILE
+Normally, a function named "EXTI15_10_IRQHandler" or an equivalent is present
+Right-Click on the function call "HAL_GPIO_EXTI_IRQHandler" and click on "Open Declaration"
+
+IN THE main.c FILE
+Create a function in the Private use code comment section
+This function need to be named "HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)"
+Here is the declaration
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	/** Your Code **/
+}
+
+Example :
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	GPIO_Pinstate pushbutton;
+	switch(GPIO_PIN)
+	{
+		case GPIO_PIN_13:
+			pushbutton = HAL_GPIO_ReadPin(BLUE_BUTTON);
+			HAL_GPIO_WritePin(LED_PIN, !pushbutton);
+			break;
+		default:
+			break;
+	}
+}
