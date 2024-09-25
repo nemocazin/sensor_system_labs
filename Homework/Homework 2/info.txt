@@ -1,0 +1,36 @@
+2.A
+
+Green LED on D13 = PA5
+Microphone (SND_IN) = PA8
+We put PA8 as an GPIO_EXTI
+We go to NVIC Tab and we enable "EXTI line[9:5] interrupts"
+After that we go to the GPIO tab and we change the GPIO mode of PA8 to "External Interrupt Mode with Rising edge trigger detection"
+And can go to the stm32f4xx_it.c file and found the function "EXTI9_5_IRQHandler"
+So the PIN is configured, we need to make the callback function in the main.c file
+We notice that the LED turned OFF/ON on the sound but if it's too noisy, the LED can't stop turning ON and OFF
+We need to add a timer to cancel the noise in continue
+So we get the actual time and we do a check every 200ms if there is one sound that happens.
+https://youtu.be/4WrYZGMUwQw
+
+
+
+2.B
+https://haelectro.com/comment-creer-facilement-un-signal-pwm-sur-stm32/
+We configure the Timer TIM1 like a PWM generator on Channel1
+We want 1Hz so we need to follow the next formula : 
+Fpwm = Fclk / ((1+period) * (1+prescaler))
+	- Fpwm = frequency of the PWM signal (1Hz)
+	- Fclk = Clock Frequency (84 MHz)
+	- period = Counter of the timer
+	- prescaler = Prescaler of the timer
+((1+period) * (1+prescaler)) needs to be at 1Hz
+the period and the prescaler needs to be under their maximum value so 65535
+So we take a period of 8399 and a period of 9999
+Moreover, we need to take a duty cycle of 50% so half of the period
+That's why we need to config the pulse at 4999
+The PWM is configured so now we need to make the function to know when the LED need to change her state
+For that, we use the condition : "__HAL_TIM_GET_COMPARE(&htim1, TIM_CHANNEL_1) > __HAL_TIM_GET_COUNTER(&htim1)"
+It checks whether the current counter value is less than the comparison value.
+However, we have tried several types of variable to change the state of the LED (uint8_t and int).
+In the case of int, the LED only lights up partially or not at all. We therefore chose the uint8_t type.
+https://youtube.com/shorts/ggwv8n-rMyo

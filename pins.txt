@@ -1,0 +1,3 @@
+Green_LED PA5
+Nucleo Blue Button PC13
+Microphone PA8
