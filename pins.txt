@@ -1,0 +1,3 @@
+Green LED on D13 = PA5
+Microphone (SND_IN) = PA8
+Blue Button = PC13 need to activate SB17	(When pressed, value = 0)
