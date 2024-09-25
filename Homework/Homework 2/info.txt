@@ -25,7 +25,7 @@ Fpwm = Fclk / ((1+period) * (1+prescaler))
 	- prescaler = Prescaler of the timer
 ((1+period) * (1+prescaler)) needs to be at 1Hz
 the period and the prescaler needs to be under their maximum value so 65535
-So we take a period of 8399 and a period of 9999
+So we take a prescaler of 8399 and a period of 9999
 Moreover, we need to take a duty cycle of 50% so half of the period
 That's why we need to config the pulse at 4999
 The PWM is configured so now we need to make the function to know when the LED need to change her state
