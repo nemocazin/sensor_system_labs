@@ -1,3 +1,5 @@
 Green_LED PA5
 Nucleo Blue Button PC13
 Microphone PA8
+Speaker PWM --> PA9 in mode TIM1 Channel 2 (Config the prescaler and the period to get 
+								the tone of your note)
