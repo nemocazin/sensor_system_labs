@@ -1,0 +1,42 @@
+EXERCISE 1
+
+So we first take the same file from the song exercise, and we are going to reuse the same song
+We config PA9 (the speaker) to work as a PWM (TIM1 on Channel 2)
+We then config PA8(microphone) to work as an interrupt (GPIO_EXTI)
+We go to NVIC Tab and we enable "EXTI line[9:5] interrupts"
+After that we go to the GPIO tab and we change the GPIO mode of PA8 to "External Interrupt Mode with Rising edge trigger detection"
+And can go to the stm32f4xx_it.c file and found the function "EXTI9_5_IRQHandler"
+For the code, we reuse the function to Play a song from the exercice b
+We add the function of callback and when the interruption is on the PIN of the microphone (PA8), a global variable goes to 1
+This variable is used in a infinite loop where we check if its value is one, and then we can play the music
+After the music is finished, we can change the value of this variable to 0.
+
+Here is the code of the callback : 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+	switch(GPIO_Pin)
+	{
+		case GPIO_PIN_8:
+			currently_playing = 1;
+			break;
+
+		default:
+			break;
+	}
+}
+
+And here is the code of the infinite loop :
+while (1)
+  {
+    /* USER CODE END WHILE */
+	if (currently_playing) 			/** If it isn't playing **/
+	{
+		PlayMusic();			/** Start the music **/
+		currently_playing = 0; 		/** Unblock the condition **/
+	}
+    /* USER CODE BEGIN 3 */
+  }
+
+
+
+EXERCISE 2
