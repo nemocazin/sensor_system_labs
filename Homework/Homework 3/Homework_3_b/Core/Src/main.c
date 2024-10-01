@@ -112,6 +112,8 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+uint8_t timer_flag = 0; // Timer flag
+
 /**
  * Copied from MX_TIM1_INIT and modified
  *
@@ -161,20 +163,46 @@ void PlayNote(struct note note_playing)
     Error_Handler();
   }
 
-  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
-  HAL_Delay(note_playing.duration * TEMPO);
-  HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
+	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2); 		// Start the note
+
+	timer_flag = 0;  								// Reset the flag
+	__HAL_TIM_SET_AUTORELOAD(&htim3, (note_playing.duration * TEMPO) - 1);
+	HAL_TIM_Base_Start_IT(&htim3); 					// Start the timer in interruption mode
+	// Wait until the flag is raised
+	if (timer_flag == 1)	// TODO : FLAG IS NOT RAISED IN THE CALLBACK
+	{
+		HAL_TIM_Base_Stop_IT(&htim3); 				// Stop the timer
+		HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2); 	// Stop the PWM
+	}
 }
 
-/** Play the music **/
-void PlayMusic()
+
+/**
+ * @brief Play the music
+ **/
+void PlayMusic(void)
 {
-	int length = sizeof(partition) / sizeof(partition[0]); //Get the number of notes in the partition
+	int length = sizeof(partition) / sizeof(partition[0]); // Get the number of notes in the partition
 
 	for (int i = 0; i < length; i++)
 	{
-		PlayNote(partition[i]); 	//For each notes
+		PlayNote(partition[i]); 	// For each notes
 	}
+}
+
+
+/**
+ * @brief Callback function for Timer 3
+ *
+ * @param htim The timer
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim->Instance == TIM3) // Verify if it's the good timer
+  {
+	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
+    timer_flag = 1; // Raise the flag to say the timer is finished
+  }
 }
 
 /* USER CODE END 0 */
@@ -211,6 +239,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
+  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);  //Start the Timer
   /* USER CODE BEGIN 2 */
   PlayMusic();				/** Start the music **/
   /* USER CODE END 2 */
@@ -367,9 +396,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 0;
+  htim3.Init.Prescaler = 8399;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 65535;
+  htim3.Init.Period = 9999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -392,7 +421,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 4999;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
