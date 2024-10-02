@@ -41,7 +41,7 @@ https://youtu.be/etWKm_HasA8
 
 EXERCISE 2
 We are going to ue a Timer instead of a HAL_Delay. So we want a timer of 1Hz
-We configure the Timer TIM3 like a PWM generator on Channel1
+We configure the Timer TIM3 and we put anything on the channels
 We want 1Hz so we need to follow the next formula : 
 Fpwm = Fclk / ((1+period) * (1+prescaler))
 	- Fpwm = frequency of the PWM signal (1Hz)
@@ -51,5 +51,5 @@ Fpwm = Fclk / ((1+period) * (1+prescaler))
 ((1+period) * (1+prescaler)) needs to be at 1Hz
 the period and the prescaler needs to be under their maximum value so 65535
 So we take a prescaler of 8399 and a period of 9999
-Moreover, we need to take a duty cycle of 50% so half of the period
-That's why we need to config the pulse at 4999
+We need to change the parameter "Trigger Event Selection" value from "reset" to "Update event"
+After that, we need to activate the TIM3 interrupt in the NVIC tab 

@@ -232,12 +232,12 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if (currently_playing) 			/** If it isn't playing **/
+		{
+			PlayMusic();				/** Start the music **/
+			currently_playing = 0; 		/** Unblock the condition **/
+		}
     /* USER CODE END WHILE */
-	if (currently_playing) 	/** If it isn't playing **/
-	{
-		PlayMusic();				/** Start the music **/
-		currently_playing = 0; 		/** Unblock the condition **/
-	}
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

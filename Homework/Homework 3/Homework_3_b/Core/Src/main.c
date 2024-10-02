@@ -167,11 +167,9 @@ void PlayNote(struct note note_playing)
 
 	timer_flag = 0;  								// Reset the flag
 	__HAL_TIM_SET_AUTORELOAD(&htim3, (note_playing.duration * TEMPO) - 1);
-	HAL_TIM_Base_Start_IT(&htim3); 					// Start the timer in interruption mode
 	// Wait until the flag is raised
 	if (timer_flag == 1)	// TODO : FLAG IS NOT RAISED IN THE CALLBACK
 	{
-		HAL_TIM_Base_Stop_IT(&htim3); 				// Stop the timer
 		HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2); 	// Stop the PWM
 	}
 }
@@ -198,11 +196,12 @@ void PlayMusic(void)
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  if (htim->Instance == TIM3) // Verify if it's the good timer
+	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); // Debug LED, Should blink if the callback is used
+	timer_flag = 1; 		  // Raise the flag to say the timer is finished
+  /*if (htim->Instance == TIM3) // Verify if it's the good timer
   {
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5);
-    timer_flag = 1; // Raise the flag to say the timer is finished
-  }
+
+  }*/
 }
 
 /* USER CODE END 0 */
@@ -239,9 +238,9 @@ int main(void)
   MX_USART2_UART_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
-  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);  //Start the Timer
   /* USER CODE BEGIN 2 */
-  PlayMusic();				/** Start the music **/
+  HAL_TIM_Base_Start_IT(&htim3); 					// Start the timer in interruption mode
+  //PlayMusic();				/** Start the music **/
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -390,7 +389,6 @@ static void MX_TIM3_Init(void)
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM3_Init 1 */
 
@@ -410,28 +408,15 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 4999;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM3_Init 2 */
 
   /* USER CODE END TIM3_Init 2 */
-  HAL_TIM_MspPostInit(&htim3);
 
 }
 
