@@ -53,6 +53,8 @@ struct note
 
 #define TEMPO	75
 
+#define GREEN_LED_PIN GPIOA, GPIO_PIN_5
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -112,7 +114,17 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-uint8_t timer_flag = 0; // Timer flag
+uint8_t flag_timer = 0; // Timer flag
+
+/**
+ * Reconfigure the TIMER with the correct parameters
+ */
+void SetTone (int tone) {
+ __HAL_TIM_SET_AUTORELOAD(&htim1, tone);               // Change the freq
+ __HAL_TIM_SET_COMPARE(&htim1, TIM_CHANNEL_2, tone / 2);  // DC of 0.5
+ __HAL_TIM_SET_COUNTER(&htim1, 0);
+}
+
 
 /**
  * Copied from MX_TIM1_INIT and modified
@@ -163,16 +175,17 @@ void PlayNote(struct note note_playing)
     Error_Handler();
   }
 
-	HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2); 		// Start the note
-
-	timer_flag = 0;  								// Reset the flag
-	__HAL_TIM_SET_AUTORELOAD(&htim3, (note_playing.duration * TEMPO) - 1);
-	// Wait until the flag is raised
-	if (timer_flag == 1)	// TODO : FLAG IS NOT RAISED IN THE CALLBACK
-	{
-		HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2); 	// Stop the PWM
-	}
+  SetTone(note_playing.tone);
+   HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+   flag_timer = 0;
+   __HAL_TIM_SET_AUTORELOAD(&htim3, (TEMPO * 10 * note_playing.duration) - 1);
+   HAL_TIM_Base_Start_IT(&htim3);
+   while (flag_timer == 0) {
+   }
+   HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
+   HAL_TIM_Base_Stop_IT(&htim3);
 }
+
 
 
 /**
@@ -196,12 +209,14 @@ void PlayMusic(void)
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_5); // Debug LED, Should blink if the callback is used
-	timer_flag = 1; 		  // Raise the flag to say the timer is finished
-  /*if (htim->Instance == TIM3) // Verify if it's the good timer
-  {
-
-  }*/
+   // Check if it's TIM3 that caused the interrupt
+   if (htim->Instance == TIM3)
+   {
+	   // Toggle the LED pin
+	   HAL_GPIO_TogglePin(GREEN_LED_PIN);
+	   // pull up the timer flag to exit the while loop in PlayNote
+	   flag_timer = 1;
+   }
 }
 
 /* USER CODE END 0 */
@@ -240,7 +255,7 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start_IT(&htim3); 					// Start the timer in interruption mode
-  //PlayMusic();				/** Start the music **/
+  PlayMusic();				/** Start the music **/
   /* USER CODE END 2 */
 
   /* Infinite loop */
