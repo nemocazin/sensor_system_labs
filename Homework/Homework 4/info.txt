@@ -1,0 +1,92 @@
+EXERCICE 1
+
+We configure USART 2 in the connectivity tab as 
+ - Mode : Asynchronous
+ - RS232 : Disable
+After that we need to add a configuration in the DMA Settings, so we select these settings :
+ - DMA Request : USART2_TX
+ - Stream DMA1 Stream 6
+ - Direction : Memory To Peripheral
+ - Priority : High
+We also keep the DMA Request setting at default configuration
+Finally in the Parameter Settings, we use this configuration :
+ - Baud rate : 115200 bits/s
+ - Word Length : 8 bits
+ - Parity : None
+The PINs are already configured so :
+ - PA2 : USART_TX
+ - PA3 : USART_RX
+
+When the config is done, we can activate the USART2 global Interrupt
+To use the interrupt, we create our own Callback function : 
+
+/**
+ * @brief Callback function for DMA TX
+ */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	is_sent = 1; // Flag to send the string
+}
+
+The flag is then used in the while loop to detect when the string is sent and when we need to send another one
+
+if (is_sent == 1)
+{
+	HAL_UART_Transmit_DMA(&huart2, (uint8_t*)string, sizeof(string));
+	is_sent = 0;
+}
+HAL_Delay(1000);
+
+Link to the video : https://youtu.be/afr0THNwyx8
+
+
+
+
+
+EXERCICE 2
+
+Fist, we need to config the pins of the LCD Display, so we use :
+- LCD_BL_ON (GPIO_Output) = PA4
+- LCD_E (GPIO_Output) = PB1
+- LCD_RS (GPIO_Output) = PB2
+- LCD_D4 (GPIO_Output) = PB12
+- LCD_D5 (GPIO_Output) = PB13
+- LCD_D6 (GPIO_Output) = PB14
+- LCD_D7 (GPIO_Output) = PB15
+After the configuration, we add the “PMDB16_LCD.c” and the “PMDB16_LCD.h” filed to the "project/Core/Src" folder
+We now can add #include "PMDB16_LCD.h“ in our main.c
+
+So first for the programm, we need to initialiaze and turn on the backlight of the LCD with these functions :
+lcd_initialize(); // Initialize the LCD controller
+lcd_backlight_ON(); // Turn ON the LCD backlight
+
+After that we create a list of a list for the members of the group : 
+char string[MAX_MEMBERS][MAX_LENGTH] = {
+	"N.Cazin",
+	"A.Paliferro",
+	"C.Coppers",
+	"H.Leveelahti",
+	"O.Kieksi"
+ };
+
+We can now use this variable in a for loop to write these names on the LCD Display
+With an algorith, we can display all the names : 
+for(int i = 0; i < MAX_MEMBERS; i++)			// For every members of the group
+{
+	lcd_println(string[i], BOTTOM_ROW);		// Always print the members ont he bottum row
+	if (i != 0 || i != MAX_MEMBERS - 1)		// If not the first members and not the last members
+	{
+		lcd_println(string[i-1], TOP_ROW);	// Print the members on top ROW
+	}
+	if (i == 0 && first_apparition == 1)		// For when the first and the last members appears
+	{
+		lcd_println(string[MAX_MEMBERS - 1], TOP_ROW);
+	}
+	first_apparition = 1;						// Flag raised only at the first writting on the LCD
+	HAL_Delay(1000);							// 1s
+}
+
+We have multiple if condition because we need to be careful to display only the first name for the first time
+After that, the second if condition if for displaying the fist and the last member
+
+Link to the video : https://youtu.be/KRqMNyhwXU8

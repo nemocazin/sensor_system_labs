@@ -1,5 +1,25 @@
-Green_LED PA5
-Nucleo Blue Button PC13
-Microphone PA8
-Speaker PWM --> PA9 in mode TIM1 Channel 2 (Config the prescaler and the period to get 
-								the tone of your note)
+NUCLEO
+
+	Green_LED PA5
+	Nucleo Blue Button PC13
+
+MICROPHONE / SPEAKER
+
+	Microphone PA8
+	Speaker PWM --> PA9 in mode TIM1 Channel 2 (Config the prescaler and the period to 
+						    get the tone of your note)
+
+USART
+
+	USART_TX PA2
+	USART_RX PA3
+
+LCD
+
+	LCD_BL_ON (GPIO_Output) = PA4
+	LCD_E (GPIO_Output) = PB1
+	LCD_RS (GPIO_Output) = PB2
+	LCD_D4 (GPIO_Output) = PB12
+	LCD_D5 (GPIO_Output) = PB13
+	LCD_D6 (GPIO_Output) = PB14
+	LCD_D7 (GPIO_Output) = PB15
