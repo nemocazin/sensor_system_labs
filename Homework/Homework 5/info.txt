@@ -53,6 +53,41 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	HAL_UART_Transmit(&huart2, (uint8_t*)message, length, 100); // Send ON USART the value
 }
 
+Another method :
+
+In the .ioc file, in Timers, we configure TIM3 with Clock Source : Internal Clock, Prescaler :  8399 and Counter Period : 9999,
+as the previous method.
+But this time, we go directly configure ADC1 in the .ioc file :
+	- We enable interruption in the NVIC settings
+	- We select Timer 3 Trigger Out event as an "External Trigger Conversion" in parameters settings
+	- then select Trigger detection on the rising edge.
+This way, every time the timer triggers an interruption, the ADC receives a signal to start a conversion. 
+Upon completing the conversion, the ADC generates an End of Conversion (EOC) interrupt, which calls the HAL_ADC_ConvCpltCallback() function.
+So we have in the initialization of the ADC these 2 new lines : 
+hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING; // Trigger on rising edge
+ hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T3_TRGO; // ADC triggered by Timer 3
+
+Moreover, in the code, we have to initialize the timer and the ADC in the main function : 
+/* Start of the Timer */
+HAL_TIM_Base_Start(&htim3);  // Start timer 3
+
+/* Start of ADC with interrupt mode */
+HAL_ADC_Start_IT(&hadc1);
+
+And then, we can use the ADC callback funtion without the timer callback function : 
+/* ADC Conversion callback function */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+    if (hadc->Instance == ADC1)
+    {
+        adc_value = HAL_ADC_GetValue(hadc);
+        float voltage = (adc_value / 4095.0) * 3.3;
+        char buffer[64];
+        int length = snprintf(buffer, sizeof(buffer), "Voltage: %.2f V\r\n", voltage);
+        HAL_UART_Transmit(&huart2, (uint8_t*)buffer, length, 100);
+    }
+}
+
 Link to the video : https://youtu.be/JLnLf0YtDTg
 
 
@@ -91,7 +126,7 @@ Finally, we need to config the pins of the LCD Display, so we use :
 - LCD_D5 (GPIO_Output) = PB13
 - LCD_D6 (GPIO_Output) = PB14
 - LCD_D7 (GPIO_Output) = PB15
-After the configuration, we add the “PMDB16_LCD.c” and the “PMDB16_LCD.h” filed to the "project/Core/Src" folder
+After the configuration, we add the “PMDB16_LCD.c” and the “PMDB16_LCD.h” files to the "project/Core/Src" folder
 We now can add #include "PMDB16_LCD.h“ in our main.c
 
 We can activate the floats in the properties tab of the projects.
@@ -121,3 +156,65 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 }
 
 Link to the video : https://youtu.be/RpeMHYbdiaA
+
+
+
+
+EXERCISE 3
+
+The configuration is simple, we need the USART and the LCD.
+For the LCD, we need to config the pins of the LCD Display, so we use :
+- LCD_BL_ON (GPIO_Output) = PA4
+- LCD_E (GPIO_Output) = PB1
+- LCD_RS (GPIO_Output) = PB2
+- LCD_D4 (GPIO_Output) = PB12
+- LCD_D5 (GPIO_Output) = PB13
+- LCD_D6 (GPIO_Output) = PB14
+- LCD_D7 (GPIO_Output) = PB15
+
+And for the USART, everything is configured by default : 
+- USART_TX = PA2
+- USART_RX = PA3
+
+After the configuration, we add the “PMDB16_LCD.c” and the “PMDB16_LCD.h” files to the "project/Core/Src" folder
+We now can add #include "PMDB16_LCD.h“ in our main.c
+
+First, we need to include the LCD files and initialize the LCD with theses 3 lines : 
+	lcd_initialize(); 	// Initialize the LCD controller
+  	lcd_backlight_ON(); 	// Turn ON the LCD backlight
+  	lcd_clear(); 		// Clear the LCD
+
+After that we need to get the string that we write. 
+For that, we need to initialize a variable for the string with a size of 16 characters.
+char rxBuffer[SIZE_ROW];
+Then, we will get every characters written until there is an end of line character (\r or \n)
+We add a null character \0 to indicate the end of the string.
+So we got this function :
+/**
+ * @brief Get characters for the string
+ */ 
+void receiveString() {
+    uint8_t index = 0; // buffer index
+    char ch;
+    // Get characters
+    while (index < SIZE_ROW) {
+        if (HAL_UART_Receive(&huart2, (uint8_t*)&ch, 1, 1000) == HAL_OK) {
+            if (ch == '\n' || ch == '\r') {
+                break; // Break if end of line
+            }
+            rxBuffer[index++] = ch; // Add Character to buffer
+        }
+    }
+    rxBuffer[index] = '\0'; // Add null character at the end of the string
+}
+
+We now can display the string on the LCD display with the function called in the main while loop
+/**
+ * @brief Get and display the string
+ */
+void displayString() {
+    receiveString(); // Get char string
+    lcd_println(rxBuffer, TOP_ROW); // Print on LCD
+}
+
+link to the video : https://youtu.be/yNN5BpTGADc
