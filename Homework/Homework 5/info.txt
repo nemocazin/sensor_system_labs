@@ -1,0 +1,123 @@
+EXERCISE 1
+
+First, we need to configure the ADC
+We put PA1, which is the potentiometer pin in the configuration "ADC1_IN1"
+Because of this PIN Configuration, we need to configure the ADC channel 1. 
+We just need to change the parameter "Sampling Time" to 3 cycles to 480 cycles
+We also need to activate on the NVIC tab, the interruption of the ADC.
+
+We want to send to value acquired on a terminal, that's why we need to configure the USART
+The configuration of USART is by default, we have the principal parameters : 
+	- Mode : Asynchronous
+	- RS232 : Disable
+	- Baud Rate : 115200 Bits/s
+
+We also need to make the conversions at a rate of 1Hz
+So we need to configure the timer TIM3, we have these principal parameters : 
+	- Clock Source : Internal Clock
+	- Prescaler : 8399
+	- Period : 9999
+	- Trigger Event Selection : Update Event
+We also need to activate the interuption on the NVIC Tab
+
+We can activate the floats in the properties tab of the projects
+
+After the general configuration, we can work on the code in the main.c file
+
+So first we need to activate the timer with this line : 
+/** Start the timer 3 **/
+if(HAL_TIM_Base_Start_IT(&htim3) != HAL_OK)
+{
+  Error_Handler();
+}
+
+The timer is now working, so in the callback we can call the ADC callback : 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+   // Check if it's TIM3 that caused the interrupt
+   if (htim->Instance == TIM3)
+   {
+	  if(HAL_ADC_Start_IT(&hadc1) != HAL_OK) // Start the ADC conversion
+	  {
+		  Error_Handler();
+	  }
+   }
+}
+And so, for the ADC callback, we get the voltage value and we put it in string to send it via USART
+Here is the ADC Callback function :
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	uint32_t ADC_value = HAL_ADC_GetValue(hadc); // Get the value of the potentiometer
+	char message [64];
+	int length = snprintf(message, sizeof(message), "Voltage : %.2fV\r\n", (VOLTAGE*ADC_value)/RESOLUTION);
+	HAL_UART_Transmit(&huart2, (uint8_t*)message, length, 100); // Send ON USART the value
+}
+
+Link to the video : https://youtu.be/JLnLf0YtDTg
+
+
+
+
+
+
+EXERCISE 2 :
+
+The configuration is almost the same as the exercise 1
+First, we need to configure the ADC
+We put PA1, which is the potentiometer pin in the configuration "ADC1_IN1"
+Because of this PIN Configuration, we need to configure the ADC channel 1. 
+We just need to change the parameter "Sampling Time" to 3 cycles to 480 cycles
+We also need to activate on the NVIC tab, the interruption of the ADC.
+
+We want to send to value acquired on a terminal, that's why we need to configure the USART
+The configuration of USART is by default, we have the principal parameters : 
+	- Mode : Asynchronous
+	- RS232 : Disable
+	- Baud Rate : 115200 Bits/s
+
+We also need to make the conversions at a rate of 1Hz
+So we need to configure the timer TIM3, we have these principal parameters : 
+	- Clock Source : Internal Clock
+	- Prescaler : 8399
+	- Period : 9999
+	- Trigger Event Selection : Update Event
+We also need to activate the interuption on the NVIC Tab
+
+Finally, we need to config the pins of the LCD Display, so we use :
+- LCD_BL_ON (GPIO_Output) = PA4
+- LCD_E (GPIO_Output) = PB1
+- LCD_RS (GPIO_Output) = PB2
+- LCD_D4 (GPIO_Output) = PB12
+- LCD_D5 (GPIO_Output) = PB13
+- LCD_D6 (GPIO_Output) = PB14
+- LCD_D7 (GPIO_Output) = PB15
+After the configuration, we add the “PMDB16_LCD.c” and the “PMDB16_LCD.h” filed to the "project/Core/Src" folder
+We now can add #include "PMDB16_LCD.h“ in our main.c
+
+We can activate the floats in the properties tab of the projects.
+
+We can now go into the main.c file and use the same code as in the exercise 1
+We also include the LCD files and initialize the LCD with theses 3 lines : 
+	lcd_initialize(); 	// Initialize the LCD controller
+  	lcd_backlight_ON(); 	// Turn ON the LCD backlight
+  	lcd_clear(); 		// Clear the LCD
+Moreover, in the ADC callback, we replace the USART transmission by the LCD functions.
+And so we have this callback function : 
+
+/**
+ * @brief ADC Callback Function
+ *
+ * @param hadc The ADC
+ *
+ * @details Is called in the timer callback
+ */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	uint32_t ADC_value = HAL_ADC_GetValue(hadc); // Get the value of the potentiometer
+	char message [64];
+	int length = snprintf(message, sizeof(message), "Voltage : %.2fV\r\n", (VOLTAGE * ADC_value) / RESOLUTION); // Put value in the message variable
+	lcd_println(message, TOP_ROW); // Put the message variable on top row of the LCD
+	lcd_drawBar((MAX_PIXEL_ROW * ADC_value) / RESOLUTION); // Put a variable bar on the bottom row of the LCD
+}
+
+Link to the video : https://youtu.be/RpeMHYbdiaA

@@ -1,8 +1,8 @@
 NUCLEO
 
-	Green_LED PA5
+	Green_LED PA5 	(To debug : HAL_GPIO_TogglePin(GREEN_LED_PIN); #define GREEN_LED_PIN GPIOA, GPIO_PIN_5)
 	Nucleo Blue Button PC13
-
+	
 MICROPHONE / SPEAKER
 
 	Microphone PA8
@@ -23,3 +23,13 @@ LCD
 	LCD_D5 (GPIO_Output) = PB13
 	LCD_D6 (GPIO_Output) = PB14
 	LCD_D7 (GPIO_Output) = PB15
+
+ADC
+
+	Potentiometer (GPIO_Analog) = PA1 
+	Need to choose the channel (IN1 for potentiometer)
+	Activite Floating point
+		- Click on project and go on File/Properties
+		- Go in C/C++ Build/Settings tab
+		- Click on MCU/MPU Settings
+		- Activate "Use float with printf from newlib-nano (-u _printf_float)"
