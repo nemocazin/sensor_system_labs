@@ -25,7 +25,8 @@ LCD
 	LCD_D7 (GPIO_Output) = PB15
 
 ADC
-
+	
+	LDR = PA0
 	Potentiometer (GPIO_Analog) = PA1 
 	Need to choose the channel (IN1 for potentiometer)
 	Activite Floating point

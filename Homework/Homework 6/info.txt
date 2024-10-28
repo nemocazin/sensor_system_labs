@@ -1,0 +1,204 @@
+EXERCISE 1
+
+
+We first need to put PA1 (Potentiometer) to the config "ADC1_IN1"
+
+We also need to make the conversions at a rate of 1Hz
+So we need to configure the timer TIM3, we have these principal parameters : 
+	- Clock Source : Internal Clock
+	- Prescaler : 8399
+	- Period : 9999
+	- Trigger Event Selection : Update Event
+NO INTERRUPTION IN THE NVIC TAB
+
+We then need to configure the ADC. So we choose the three channels in the Analog/ADC1 tab
+ - IN1 (Potentiometer)
+ - Temperature Sensor Channel
+ - Vrefint Channel
+We have to change the configuration of the ADC to works in DMA and in circular mode
+ - In DMA tab of ADC1, add it (DMA Request = ADC1
+			       Stream = DMA2 Stream 0
+			       Direction = Peripheral To Memory
+			       Priority = Low
+   And in the same tab in "DMA Request Settings", change the Mode to Circular
+   The data Width will be a Half Word, o the variable stocking the data will ne a uint16_t
+ - In "Parameter Settings" tab, in "Rank", 
+      - Change the number of conversion from 1 to 3 --> We will have 3 rank tab
+      - External Trigger Conversion Source : Timer 3 Trigger Out event
+      - External Trigger Conversion Edge : Trigger detection on the falling edge
+      - Rank 1 : Channel 1, 480 cycles
+      - Rank 2 : Channel Temperature Sensor, 480 cycles
+      - Rank 3 : Channel Vrefint, 480 cycles
+      - Change the DMA Continuous Requests from Disabled to Enabled
+So the callback of the ADC will be executed every 1s
+
+We also need to put the USART transmission (TX) in DMA configuration
+Finally, we can activate the floats in the properties tab of the projects
+
+For the code, in the main function, we need to start the timer and the ADC with this code : 
+/* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start(&htim3);  // Start TIM 3 (1sec)
+
+  if(HAL_ADC_Start_DMA(&hadc1, (uint32_t *) ADC_values, ADC_VALUES_SIZE) != HAL_OK) // Start ADC
+  {
+	 Error_Handler();
+  }
+/* USER CODE END 2 */
+
+So the callback will be executed every 1sec, so we have this callback : 
+/* USER CODE BEGIN 0 */
+uint16_t ADC_values[ADC_VALUES_SIZE]; // Variable to store data recover by the ADC
+
+/**
+ * @brief Callback of the ADC function
+ */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+  char strbuffer [100];
+  float potentiometer = (ADC_values[POTENTIOMETER] * VOLTAGE) / RESOLUTION;
+  float temperature = 25 + ((((ADC_values[TEMP_SENSOR] * VOLTAGE) / RESOLUTION) - 0.76 ) / 0.025);
+  float vref = (ADC_values[VREF] * VOLTAGE) / RESOLUTION;
+
+  int maxlength = snprintf(strbuffer, 100, "Pot: %.2fV \t Temp: %.2fC \t Vref: %.2fV\r\n", potentiometer, // Construct the string
+		  	  	  	  	  	  	  	  	  	   temperature,
+		  	  	  	  	  	  	  	  	  	   vref);
+  HAL_UART_Transmit_DMA(&huart2, (uint8_t *) strbuffer, maxlength); // Send to terminal
+}
+
+/* USER CODE END 0 */
+
+So we recover the values of the ADC in the variable ADC_values and we do some modification
+of values
+A string is then created and sent by USART with DMA function.
+
+Link to the video : https://youtu.be/rMJwaAXDu3s
+
+
+
+
+
+EXERCISE 2
+
+First, we need to configure the ADC.
+We put P01, which is a pin in the configuration "ADC1_IN0".
+Because of this PIN Configuration, we need to configure the ADC channel 0. 
+We just need to change the parameter "Sampling Time" to 480 cycles.
+We also need to activate on the NVIC tab, the interruption of the ADC. 
+We want that timer to start ADC so we set timer 3 trigger out event as external trigger source.
+
+We want to send the value acquired on a terminal, that's why we need to configure the USART.
+The configuration of USART is by default, we have the principal parameters : 
+	- Mode : Asynchronous
+	- RS232 : Disable
+	- Baud Rate : 115200 Bits/s
+
+We also need to make the conversions at a rate of 1ms.
+So we need to configure the timer TIM3, we have these principal parameters : 
+Clock Source : Internal Clock
+Prescaler : 8399
+Period : 9
+We also need to set trigger event selection to update events so ADC will be directly triggered when the timer reaches max value.
+
+Because data will be saved and read directly from memory via DMA we need to activate DMA. 
+First channel of DMA will be used with USART so it must be set to stream source. 
+In the same way we set ADC to stream from the second DMA channel.
+
+First we include some necessary libraries and initialize the array for ADC result and UART buffer.
+
+********************************************************
+#include <string.h>
+#include <stdio.h>
+#include <math.h>
+
+#define FULL_ARRAY_SIZE 		2000
+#define HALF_ARRAY_SIZE 		1000
+#define VOLTAGE 			3.3
+#define ONE_HUNDRED_K_OHMS		100000
+#define RESOLUTION 			4095.0
+
+uint16_t adcValues[2000]; // Array to store ADC values from three channels
+char txBuffer[50]; // Buffer to store the string to send over USART
+********************************************************
+
+ADC array contains 2000 places so it can hold ADC conversions for the last two seconds.
+In main function it’s only needed to initialize peripherals and run following lines to start timer in interrupt mode:
+
+/* USER CODE BEGIN 2 */
+
+  // Start TIM 3 (1 milli sec)
+  if(HAL_TIM_Base_Start(&htim3) != HAL_OK)
+  {
+	 Error_Handler();
+  }
+
+  // Start ADC
+  if(HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adcValues, FULL_ARRAY_SIZE) != HAL_OK)
+  {
+	 Error_Handler();
+  }
+
+/* USER CODE END 2 */
+
+Timer interrupt function is triggered every one second and it’s responsible for starting a new ADC in DMA mode.
+ADC buffer is handled with two similar callback functions. 
+Half Full callback is triggered when the buffer is half full and full callback when it’s completely full.
+
+/**
+ * @brief Half Callback of the ADC function
+ * 		  Send data function, pointer to first value of array
+ */
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	SendData(adcValues);
+}
+
+
+
+/**
+ * @brief Full Callback of the ADC function
+ * 		  Send data function, pointer to 1000th value of array
+ */
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
+{
+	SendData(adcValues + HALF_ARRAY_SIZE);
+}
+
+In both functions SendData function is called. It gets a pointer to the ADC buffer as its parameter. 
+It’s either first or the 1000th value depending on how full the buffer is.
+
+/**
+ * @brief Modification and sending of LDR values to the terminal by using UART
+ */
+void SendData(uint16_t* HalfArray)
+{
+	// Calculate mean of desired half of array
+	uint32_t adcMean = CalculateMean(HalfArray);
+	// Calculate adcV, LDR and LUX values
+	float adcV = adcMean / RESOLUTION * VOLTAGE;
+	float ldr = adcV * ONE_HUNDRED_K_OHMS / (VOLTAGE - adcV);
+	float lux = pow((10 * (ONE_HUNDRED_K_OHMS / ldr)), 1.25);
+
+	snprintf(txBuffer, sizeof(txBuffer), "LDR: %.2f Ohm, LUX: %.2f Lux\r\n", ldr, lux);
+	HAL_UART_Transmit_DMA(&huart2, (uint8_t*)txBuffer, strlen(txBuffer));
+}
+
+First mean of array is calculated in CalculateMean function
+
+/**
+ * @brief Calculate and return mean value of an array
+ */
+uint32_t CalculateMean(uint16_t* HalfArray)
+{
+	uint32_t sum = 0;
+	for(uint16_t index = 0; index < HALF_ARRAY_SIZE; index++)
+	{
+		sum += HalfArray[index];
+	}
+	uint32_t result = sum / HALF_ARRAY_SIZE;
+	return result;
+}
+
+Then adcV, LDR and LUX are calculated based on the mean of ADC conversions. 
+Finally those are saved to the string and that string is sended to the remote terminal via USART and DMA.
+
+Link to the video : 
