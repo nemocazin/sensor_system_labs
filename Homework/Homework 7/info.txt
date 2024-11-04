@@ -1,0 +1,120 @@
+EXERCISE 1
+
+For this exercise, the goal is to recover data from the temperature sensor by using I²C.
+We also need to read all 11 bits within an interrupt routine.
+
+First we need to do the configuration of the I²C : 
+For the pins, we have : 
+- PB8 = I2C1_SCL
+- PB9 = I2C1_SDA
+We also need to change the mode of the I²C from "Disable" to "I²C".
+To not block the programm, we want I²C to work in DMA.
+We activate the I²C event interrupt in the NVIC tab.
+Then, we configure the DMA request fort I2C1_RX and I2C1_TX in normal mode and with the Data Width in Byte.
+
+Moreover, we want to send the data recovers to a terminal.
+The configuration of USART is by default, we have the principal parameters : 
+	- Mode : Asynchronous
+	- RS232 : Disable
+	- Baud Rate : 115200 Bits/s
+We want the USART to works in DMA mode, so we activate the interrupts in the NVIC tab.
+We also configure the DMA request fort USART2_TX in normal mode and with the Data Width in Byte.
+
+We also need to recover and send the data at a rate of 1Hz (1 sec)
+So we need to configure the timer TIM3, we have these principal parameters : 
+	- Clock Source : Internal Clock
+	- Prescaler : 8399
+	- Period : 9999
+	- Trigger Event Selection : Update Event
+We also need to activate the interruption on the NVIC Tab
+
+We can activate the floats in the properties tab of the projects.
+
+After the configuration done, we can now code the program :
+
+First, we are going to initialize the I2C and the timer with theses 2 lines of code : 
+
+/** LM75 initialization -> set up pointer register to temperature sensor **/
+if(HAL_I2C_Master_Transmit_DMA(&hi2c1, LM75_ADDR , &LM75_TEMP_ADDR, ONE_BYTE) != HAL_OK)
+{
+	Error_Handler();
+}
+
+/** Start the timer (1 sec) **/
+if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK)
+{
+    Error_Handler();
+}
+
+The registers of the LM75 are : 
+
+uint8_t LM75_ADDR = 0b10010000;			// Address left-shifted by one
+uint8_t LM75_TEMP_ADDR = 0x00;			// Address of the pointer register
+
+Then, we have the Timer callback which is going to call a function to recover and send the data from the temperature sensor :
+
+/**
+ * @brief Timer Callback function, calling the function to recover and send data
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+    if (htim->Instance == TIM3)
+    {
+    	I2C_ReadTemp();         // Read and send temperature every second
+    }
+}
+
+In the function, we use I²C to receive data that we store in an array of 2 bytes since I2C send data byte per byte
+The 2 bytes needs to be stored in a unique uint16_t variable to get the real temperature.
+So, the first byte receives in putted in this variable and is shifted on the left.
+The second byte is stored after the first byte.
+(For exemple : The first byte received is 0b11011001 and the second byte received is 0b00110111, so the uint16_t variable will be 0b11011001 00110111 or 0xd937)
+We can divide this variable by the value of 2^8, so the value of a byte with all the bits at 1.
+Here is the function : 
+
+/**
+ * @brief Recover data from the temperature sensor by using I²C
+ * 		  Send the data to a terminal using USART
+ */
+void I2C_ReadSendTemp(void)
+{
+	char message[SIZE_STRING];
+	int message_length = 0;
+	uint8_t temperature_bytes[2];
+	uint16_t raw_temperature;
+	float temperature = 0;
+
+	if(HAL_I2C_Master_Receive_DMA(&hi2c1, LM75_ADDR+1, temperature_bytes, TWO_BYTE) == HAL_OK)
+	{
+		// Cast the two bytes acquired in one variable
+		raw_temperature = ((temperature_bytes[0] << EIGHT_BITS | temperature_bytes[1] ));
+
+		// Sign bit verification
+		if (raw_temperature & 0x8000)  // If 16th bit is equal to 1 = negative value
+		{
+			raw_temperature |= 0x8000;  // Reverse all the bits except the 16th
+			temperature = ((raw_temperature + 0x0001) / 256.0);
+			message_length = snprintf(message, SIZE_STRING, "T: -%.3f\r\n", temperature);
+		}
+		else
+		{
+			temperature = raw_temperature / 256.0;
+			message_length = snprintf(message, SIZE_STRING, "T: %.3f\r\n", temperature);
+		}
+	}
+
+	// Error when receiving via I²C
+	else
+	{
+		message_length = snprintf(message, SIZE_STRING, "ERROR : Can't read from LM75 !!!\r\n");
+	}
+	HAL_UART_Transmit_DMA(&huart2, (uint8_t *)message, message_length);
+}
+
+Like that, the timer doesn't work because the priority of the interruption need to be different than the I²C and the USART
+So, in the NVIC tab, we change the the preemption priority of the timer interrupt from "0" to "1"
+
+Moreover, we think that the compiler uses a 9 bit for the float and so the 11 bits of the temperature sensor are rounded with a ~ +1°C - 0,5°C, which creates the bug. 
+We didn’t find any solutions for this problem.
+
+Link to the video : https://youtu.be/y7vbAGlpmDo 

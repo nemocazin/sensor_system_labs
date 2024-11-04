@@ -201,4 +201,4 @@ uint32_t CalculateMean(uint16_t* HalfArray)
 Then adcV, LDR and LUX are calculated based on the mean of ADC conversions. 
 Finally those are saved to the string and that string is sended to the remote terminal via USART and DMA.
 
-Link to the video : 
+Link to the video : https://youtu.be/em55-ID1QiY
