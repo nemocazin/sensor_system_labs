@@ -1,0 +1,1 @@
+Look at CTRL_Register_x to control the sensor P29/45 of lis2de.pdf

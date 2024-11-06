@@ -37,5 +37,5 @@ ADC
 
 I²C
 
-	SCL = PB8 (I2C1_SDL)	for temp sensor
-	SDA = PB9 (I2C1_SDA)	for temp sensor
+	SCL = PB8 (I2C1_SDL)	for temp sensor & accelerometer
+	SDA = PB9 (I2C1_SDA)	for temp sensor & accelerometer
