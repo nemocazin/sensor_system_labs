@@ -1,0 +1,33 @@
+EXERCISE 1 
+
+The goal of this project is to retrieve data from the accelerometer by using I²C.
+We need to send these data on a terminal using UART in DMA mode every 1 sec within a timer interrupt.
+
+First we need to do the configuration of the I²C : 
+For the pins, we have : 
+- PB8 = I2C1_SCL
+- PB9 = I2C1_SDA
+We also need to change the mode of the I²C from "Disable" to "I²C".
+
+Moreover, we want to send the data recovers to a terminal.
+The configuration of USART is by default, we have the principal parameters : 
+	- Mode : Asynchronous
+	- RS232 : Disable
+	- Baud Rate : 115200 Bits/s
+We want the USART to works in DMA mode, so we activate the interrupts in the NVIC tab.
+We also configure the DMA request fort USART2_TX in normal mode and with the Data Width in Byte.
+
+We also need to recover and send the data at a rate of 1Hz (1 sec)
+So we need to configure the timer TIM3, we have these principal parameters : 
+	- Clock Source : Internal Clock
+	- Prescaler : 8399
+	- Period : 9999
+	- Trigger Event Selection : Update Event
+We also need to activate the interruption on the NVIC Tab
+
+Like that, the timer doesn't work because the priority of the interruption need to be different than the I²C and the USART
+So, in the NVIC tab, we change the the preemption priority of the timer interrupt from "0" to "1"
+
+We can activate the floats in the properties tab of the projects.
+
+After the configuration done, we can now code the program :

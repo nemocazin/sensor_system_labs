@@ -23,6 +23,7 @@
 /* USER CODE BEGIN Includes */
 #include "../inc/LIS2DE.h"
 #include <stdio.h>
+#include <string.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,6 +36,7 @@
 #define ONE_SECOND 1000
 #define DELAY_UART 100
 #define DELAY_I2C 100
+#define GREEN_LED_PIN GPIOA, GPIO_PIN_5
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,18 +46,37 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+DMA_HandleTypeDef hdma_i2c1_rx;
+DMA_HandleTypeDef hdma_i2c1_tx;
+
+TIM_HandleTypeDef htim3;
 
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
+
+// Registers of LIS2DE
+uint8_t LIS2DE_AccAddr_READ;
+uint8_t LIS2DE_AccAddr_WRITE;
+
+// Characters
+char str1[32];
+char str2[32];
+char message[64];  // the message is send 1 time since the DMA needs time to transmit it
+
+// ACC buffer
+volatile uint8_t accBuffer[6];
 
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -63,125 +84,145 @@ static void MX_I2C1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-uint8_t LIS2DE_accel_addr_read = 0;
-uint8_t LIS2DE_accel_addr_write = 0;
+/**
+ * @brief Timer Callback
+ * 	      Begin the I²C callback
+ *
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Instance == htim3.Instance)
+	{
+		// Toggle LED
+		HAL_GPIO_TogglePin(GREEN_LED_PIN);
+
+		// Sequentially read data
+		uint8_t ctrData = LIS2DE_OUT_X_H | 0x80;
+
+		if (HAL_I2C_Master_Transmit_DMA(&hi2c1, LIS2DE_AccAddr_WRITE, &ctrData, 1) != HAL_OK)
+		{
+			Error_Handler();
+		}
+	}
+}
+
+
 
 /**
- * @brief Find if the accelerometer is an LIS2DE or an LIS2DE12
- * 		  and do the configuration of the registers
+ * @brief TX Callback from the accelerometer
+ *        Ask for the values of the accelerometer
+ */
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	if (HAL_I2C_Master_Receive_DMA(&hi2c1, LIS2DE_AccAddr_READ, (uint8_t *) accBuffer, 6) != HAL_OK)
+	{
+		Error_Handler();
+	}
+}
+
+
+
+/**
+ * @brief RX Callback of the I²C
+ *        Get all the values from the accelerometer
+ */
+void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	// get values from buffer
+	float x = accBuffer[0]/64.0;
+	float y = accBuffer[2]/64.0;
+	float z = accBuffer[4]/64.0;
+
+	// format result
+	char str3[32];
+	snprintf(str3, sizeof(str3), "x: %.2f\r\ty: %.2f\r\tz: %.2f\r\n", x, y, z);
+
+	// transmit to remote terminal
+	HAL_UART_Transmit_DMA(&huart2, (uint8_t *)str3, strlen(str3));
+
+}
+
+
+
+/**
+ * @brief Automatically select the correct address for the accelerometer (LIS2DE or LIS2DE12)
  */
 void FindLIS2DE (void)
 {
-	char message[100];
-	int message_length = snprintf(message, 100, "LIS2DE DEMO START\r\n");
-	HAL_UART_Transmit(&huart2, (uint8_t *)message, message_length, DELAY_UART);
-
 	/** LIS2DE **/
-	if(HAL_I2C_Master_Transmit(&hi2c1, LIS2DE_ADDR_READ, 0, 1, DELAY_I2C) == HAL_OK)
+	if (HAL_I2C_Master_Transmit(&hi2c1, LIS2DE_ADDR_READ, 0, 1, 100) == HAL_OK)
 	{
-		 message_length = snprintf(message, 100, "LIS2DE FOUND\r\n");
-		 HAL_UART_Transmit(&huart2, (uint8_t *)message, message_length, DELAY_UART);
+	  // Format the message
+	  snprintf(str1, sizeof(str1), "LISDE ADR SELECTED\n");
 
-		 LIS2DE_accel_addr_read  = LIS2DE_ADDR_READ;
-		 LIS2DE_accel_addr_write = LIS2DE_ADDR_WRITE;
+	  // Set ADR
+	  LIS2DE_AccAddr_READ  = LIS2DE_ADDR_READ;
+	  LIS2DE_AccAddr_WRITE = LIS2DE_ADDR_WRITE;
 
 	}
 
 	/** LIS2DE12 **/
-	else if(HAL_I2C_Master_Transmit(&hi2c1, LIS2DE12_ADDR_READ, 0, 1, DELAY_I2C) == HAL_OK)
+	else if (HAL_I2C_Master_Transmit(&hi2c1, LIS2DE12_ADDR_READ, 0, 1, 100) == HAL_OK)
 	{
-		 message_length = snprintf(message, 100, "LIS2DE12 FOUND\r\n");
-		 HAL_UART_Transmit(&huart2, (uint8_t *)message, message_length, DELAY_UART);
+	  // Format the message
+	  snprintf(str1, sizeof(str1), "LISDE12 ADR SELECTED\n");
 
-		 LIS2DE_accel_addr_read  = LIS2DE12_ADDR_READ;
-		 LIS2DE_accel_addr_write = LIS2DE12_ADDR_WRITE;
+	  // Set ADR
+	  LIS2DE_AccAddr_READ  = LIS2DE12_ADDR_READ;
+	  LIS2DE_AccAddr_WRITE = LIS2DE12_ADDR_WRITE;
 
 	}
 
-	/** Error finding the accelerometer **/
+	/** ERROR : Neither LIS2DE or LIS2DE12 **/
 	else
 	{
-		 message_length = snprintf(message, 100, "NO LIS2DE FOUND\r\n");
-		 HAL_UART_Transmit(&huart2, (uint8_t *)message, message_length, DELAY_UART);
-		 Error_Handler();
+		// Format the message
+		snprintf(str1, sizeof(str1), "ERROR : NO ADR SELECTED\n");
+
+		// Handle error
+		Error_Handler();
+
 	}
 }
 
 
 /**
- * @brief Configure the LIS2DE CTRL1 register
+ * @brief Configure the register CTRL_REG1 to get the value of the accelerometer
+ *
+ *  1. Update rate                 	  0001 0000 	: 1 Hz
+ *  2. Normal Mode Operation          0000 0000   	: Normal mode
+ *  3. 3 Active channels (x, y, z)    0000 0111     : x, y, w are active
+ *  ------------------------------------------------------------------
+ *                                    0001 0111
  */
-void ConfigLIS2DERegCTRL1 (void)
+void ConfigureLIS2DE (void)
 {
-	char message[100];
-	int message_length;
+	uint8_t CTRL_REG1_MODE[2];
+	CTRL_REG1_MODE[1] = LIS2DE_CTRL_REG1;
+	CTRL_REG1_MODE[2] = 0b00011111;
 
-	uint8_t CTRL_DATA[2];
-	CTRL_DATA[0] = LIS2DE_CTRL_REG1;
-	CTRL_DATA[1] = 0b00011111;
-
-	/** Configure CTRL1 register **/
-	if(HAL_I2C_Master_Transmit(&hi2c1, LIS2DE_accel_addr_write, CTRL_DATA, 2, DELAY_I2C) == HAL_OK)
+	/** Set the registers **/
+	if (HAL_I2C_Master_Transmit(&hi2c1, LIS2DE_AccAddr_WRITE,  CTRL_REG1_MODE, 2, 100) == HAL_OK)
 	{
-		message_length = snprintf(message, 100, "LIS2DE OK: CTRL REG1\r\n");
-		HAL_UART_Transmit(&huart2, (uint8_t *)message, message_length, DELAY_UART);
+	  // Format message
+	  snprintf(str2, sizeof(str2), "OPTIONS SET\n");
 	}
 
-	/** Error while configuring CTRL1 register **/
+	/** ERROR : Registers not correctly set **/
 	else
 	{
-		message_length = snprintf(message, 100, "LIS2DE ERROR: CTRL REG 1\r\n");
-		HAL_UART_Transmit(&huart2, (uint8_t *)message, message_length, DELAY_UART);
-
+	  // Format message
+	  snprintf(str2, sizeof(str2), "ERROR\n");
 	}
+
+	// Format message
+	strcpy(message, str1);
+	strcat(message, str2);
+
+	// Send an update
+	HAL_UART_Transmit_DMA(&huart2, (uint8_t *)message, strlen(message));
 }
 
-
-
-/**
- * @brief Retrieve the value of X, Y and Z of the accelerometer
- */
-void GetXYZ_LIS2DE(void)
-{
-	int8_t x_val, y_val, z_val;
-	uint8_t CTRL_DATA;
-	char message[100];
-
-	/** X Value **/
-	CTRL_DATA = LIS2DE_OUT_X_H;
-	if (HAL_I2C_Master_Transmit(&hi2c1, LIS2DE_accel_addr_write, &CTRL_DATA, 1, DELAY_I2C) != HAL_OK){
-	  Error_Handler();
-	}
-	if (HAL_I2C_Master_Receive(&hi2c1, LIS2DE_accel_addr_read, (uint8_t*) &x_val, 1, DELAY_I2C) != HAL_OK){
-	  Error_Handler();
-	}
-
-	/** Y Value **/
-	CTRL_DATA = LIS2DE_OUT_Y_H;
-	if(HAL_I2C_Master_Transmit(&hi2c1, LIS2DE_accel_addr_write, &CTRL_DATA, 1, DELAY_I2C) != HAL_OK){
-	  Error_Handler();
-	}
-
-	if(HAL_I2C_Master_Receive(&hi2c1, LIS2DE_accel_addr_read, (uint8_t*) &y_val, 1, DELAY_I2C) != HAL_OK){
-	  Error_Handler();
-	}
-
-	/** Z Value **/
-	CTRL_DATA = LIS2DE_OUT_Z_H;
-	if(HAL_I2C_Master_Transmit(&hi2c1, LIS2DE_accel_addr_write, &CTRL_DATA, 1, DELAY_I2C) != HAL_OK){
-	  Error_Handler();
-	}
-
-	if(HAL_I2C_Master_Receive(&hi2c1, LIS2DE_accel_addr_read, (uint8_t*) &z_val, 1, DELAY_I2C) != HAL_OK){
-	  Error_Handler();
-	}
-
-	/** Send the value on a terminal **/
-	int message_length = snprintf(message,100,"X: %+.2f\r\nY: %+.2f\r\nZ: %+.2f\r\n\r\n", x_val/64.0,
-																					  y_val/64.0,
-																					  z_val/64.0);
-	HAL_UART_Transmit(&huart2, (uint8_t *)message, message_length, DELAY_UART);
-}
 /* USER CODE END 0 */
 
 /**
@@ -213,12 +254,18 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_I2C1_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
+  /** Configure and set the LIS2DE **/
   FindLIS2DE();
-  ConfigLIS2DERegCTRL1();
+  ConfigureLIS2DE();
+
+  /** Start TIM in IT mode **/
+  HAL_TIM_Base_Start_IT(&htim3);
 
   /* USER CODE END 2 */
 
@@ -226,8 +273,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  GetXYZ_LIS2DE();
-	  HAL_Delay(ONE_SECOND);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -316,6 +361,51 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 8399;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 9999;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -345,6 +435,28 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+  /* DMA1_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream7_IRQn);
 
 }
 
