@@ -39,3 +39,11 @@ I²C
 
 	SCL = PB8 (I2C1_SDL)	for temp sensor & accelerometer
 	SDA = PB9 (I2C1_SDA)	for temp sensor & accelerometer
+
+SPI
+
+	SS = PB6 --> To put in GPIO_Output manually
+	SCK = PA5 --> need to reset the state of the pin before because it's the green LED
+	MISO = PA6
+	MOSI = PA7
+	SCK, MISO, MOSI are automitcally configured when SPI is activate 
