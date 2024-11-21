@@ -1,0 +1,31 @@
+HOMEWORK 1
+	General questions
+
+HOMEWORK 2
+	Speak on a microphone and light up a LED
+	PWM of 1Hz to blink a LED
+
+HOMEWORK 3
+	Play a song using the speaker when the microphone detects a loud sound (INTERRUPT)
+
+HOMEWORK 4
+	Send information from the microcontroller to the PC, using the USART (DMA)
+	Write on the LCD the name of each member of your group, one per line, in alphabetical order. (NO INTERRUPT)
+	
+HOMEWORK 5
+	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and sending the value to a remote terminal by using UART (TIMER INTERRUPT, NO UART INTERRUPT)
+	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and showing the value on the LCD (TIMER INTERRUPT)
+	Try sending from the PC via UART a string of variable length that is displayed on the LCD (NO INTERRUPT)
+
+HOMEWORK 6
+	Acquire 3 voltages (potentiometer, temperature sensor, Vref) every 1s and to send them to a remote terminal. (TIMER TRIGGERING, UART DMA)
+	Acquire LDR resistance value every ms and to send its average value to a remote terminal every 1s. Convert the resistance value to a lux level and send that to the remote terminal. (TIMER TRIGGERING, UART DMA)
+
+HOMEWORK 7
+	Read the temperature measured by the LM75 and send it to a remote terminal every 1 second within an interrupt routine. We will read the 11 bits so the LSB and the MSB. (TIMER INTERRUPT, UART DMA, I²C DMA)
+
+HOMEWORK 8
+	Sequentially read the x, y, and z accelerometer data every second and transmit these values to the computer via UART. (TIMER INTERRUPT, UART DMA, I²C DMA)
+
+HOMEWORK 9
+	Transmit a letter to the LED matrix using SPI and a timer interrupt & Alternate between two letters (TIMER INTERRUPT, SPI DMA)
