@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "../inc/LIS2DE.h"
+#include "../inc/PMDB16_LCD.h"
 #include <stdio.h>
 #include <string.h>
 /* USER CODE END Includes */
@@ -37,6 +38,8 @@
 #define DELAY_UART 100
 #define DELAY_I2C 100
 #define GREEN_LED_PIN GPIOA, GPIO_PIN_5
+#define TOP_ROW 	0
+#define BOTTOM_ROW 	1
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -119,7 +122,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 /**
  * @brief TX Callback from the accelerometer
- *        Read the values of the accelerometer
+ *        Ask for the values of the accelerometer
  */
 void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
@@ -137,18 +140,28 @@ void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c)
  */
 void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-	// get values from buffer
+	// Get values from buffer
 	float x = accBuffer[0]/64.0;
 	float y = accBuffer[2]/64.0;
 	float z = accBuffer[4]/64.0;
 
-	// format result
-	char str3[32];
-	snprintf(str3, sizeof(str3), "x: %.2f\r\ty: %.2f\r\tz: %.2f\r\n", x, y, z);
+	// UART Format result
 
-	// transmit to remote terminal
-	HAL_UART_Transmit_DMA(&huart2, (uint8_t *)str3, strlen(str3));
+	char uart_str3[32];
+	snprintf(uart_str3, sizeof(uart_str3), "x: %.2f\r\ty: %.2f\r\tz: %.2f\r\n", x, y, z);
 
+	// Transmit to remote terminal
+	HAL_UART_Transmit_DMA(&huart2, (uint8_t *)uart_str3, strlen(uart_str3));
+
+	// LCD Format Result
+	char top_lcd_str[20];
+	char bottom_lcd_str[16];
+	snprintf(top_lcd_str, sizeof(top_lcd_str), "x: %.2f\r\ty: %.2f\r\n", x, y);
+	snprintf(bottom_lcd_str, sizeof(bottom_lcd_str), "z: %.2f\r\n", z);
+
+	// Write the string on the LCD display
+	lcd_println(top_lcd_str, TOP_ROW);
+	lcd_println(bottom_lcd_str, BOTTOM_ROW);
 }
 
 
@@ -274,6 +287,12 @@ int main(void)
 
   /** Start TIM in IT mode **/
   HAL_TIM_Base_Start_IT(&htim3);
+
+  /** Initialize the LCD controller **/
+  lcd_initialize();
+
+  /** Turn ON the LCD backlight **/
+  lcd_backlight_ON();
 
   /* USER CODE END 2 */
 
@@ -486,7 +505,11 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, LCD_BL_ON_Pin|LD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOB, LCD_E_Pin|LCD_RS_Pin|LCD_D4_Pin|LCD_D5_Pin
+                          |LCD_D6_Pin|LCD_D7_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -494,12 +517,21 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : LCD_BL_ON_Pin LD2_Pin */
+  GPIO_InitStruct.Pin = LCD_BL_ON_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LCD_E_Pin LCD_RS_Pin LCD_D4_Pin LCD_D5_Pin
+                           LCD_D6_Pin LCD_D7_Pin */
+  GPIO_InitStruct.Pin = LCD_E_Pin|LCD_RS_Pin|LCD_D4_Pin|LCD_D5_Pin
+                          |LCD_D6_Pin|LCD_D7_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
