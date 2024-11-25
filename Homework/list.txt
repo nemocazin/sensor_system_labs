@@ -13,13 +13,13 @@ HOMEWORK 4
 	Write on the LCD the name of each member of your group, one per line, in alphabetical order. (NO INTERRUPT)
 	
 HOMEWORK 5
-	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and sending the value to a remote terminal by using UART (TIMER INTERRUPT, NO UART INTERRUPT)
-	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and showing the value on the LCD (TIMER INTERRUPT)
+	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and sending the value to a remote terminal by using UART (TIMER INTERRUPT, NO UART INTERRUPT, ADC)
+	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and showing the value on the LCD (TIMER INTERRUPT, ADC)
 	Try sending from the PC via UART a string of variable length that is displayed on the LCD (NO INTERRUPT)
 
 HOMEWORK 6
-	Acquire 3 voltages (potentiometer, temperature sensor, Vref) every 1s and to send them to a remote terminal. (TIMER TRIGGERING, UART DMA)
-	Acquire LDR resistance value every ms and to send its average value to a remote terminal every 1s. Convert the resistance value to a lux level and send that to the remote terminal. (TIMER TRIGGERING, UART DMA)
+	Acquire 3 voltages (potentiometer, temperature sensor, Vref) every 1s and to send them to a remote terminal. (TIMER TRIGGERING, ADC DMA, UART DMA)
+	Acquire LDR resistance value every ms and to send its average value to a remote terminal every 1s. Convert the resistance value to a lux level and send that to the remote terminal. (TIMER TRIGGERING, ADC DMA, UART DMA)
 
 HOMEWORK 7
 	Read the temperature measured by the LM75 and send it to a remote terminal every 1 second within an interrupt routine. We will read the 11 bits so the LSB and the MSB. (TIMER INTERRUPT, UART DMA, I²C DMA)
