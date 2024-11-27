@@ -47,3 +47,21 @@ SPI
 	MISO = PA6
 	MOSI = PA7
 	SCK, MISO, MOSI are automitcally configured when SPI is activate 
+
+KEYBOARD
+	ROWS : 
+	PC2 = GPIO_INPUT
+	PC3 = GPIO_INPUT
+	PC12 = GPIO_INPUT
+	PC13 = GPIO_INPUT
+	
+	COLUMNS : 
+	PC8 = GPIO_OUTPUT
+	PC9 = GPIO_OUTPUT
+	PC10 = GPIO_OUTPUT
+	PC11 = GPIO_OUTPUT
+
+ENCODER
+	
+	Only for Timer 3
+	Connected to PC6 and PC7
