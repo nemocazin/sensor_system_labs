@@ -47,7 +47,10 @@ UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
-
+uint8_t txBuffer[64];     // Buffer to store the string to send over USART
+uint16_t PREV_COUNTER = 0;
+float REVOLUTION_COUNTS = 48; // Amount of steps in full revolution
+float SAMPLE_TIME = 1; //Sample time in seconds
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -64,8 +67,6 @@ static void MX_TIM1_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-volatile int8_t encoderOverUnderFlow = 0; // Variable in case of Underflow or Overflow
-
 /* A WORD ON OVERFLOWS
  *
  * Simply put: you cannot avoid overflows. You can mitigate them, yes, but you
@@ -74,6 +75,7 @@ volatile int8_t encoderOverUnderFlow = 0; // Variable in case of Underflow or Ov
  * instead of a 16 bit one, as in tim3 case. Unfortunately, we are constrained in
  * this sense by the fact that the encoder is already connected to certain pins.
  * Bad choice if overflows are a problem, but that's what we have to work with.
+ *
  * As a fallback, we could "extend" the timer in software. For example, we could
  * use the interrupt feature of the timer to increment or decrement a 16 bit
  * variable, so that we basically get the same as a 32 bit timer, but usign the
@@ -82,6 +84,7 @@ volatile int8_t encoderOverUnderFlow = 0; // Variable in case of Underflow or Ov
  * the worst possible preemption scenario (this depends both on the system and on
  * the encoder). At some point, even our extended 32 bit timer will eventually
  * overflow.
+ *
  * In our particular case, we are interested in the speed, thus we can erase our
  * counter every read. so the sizing of our extenion bits depends on a particular
  * question: how many overflows can we expect in the timespan of a read (1 sec)?
@@ -89,19 +92,30 @@ volatile int8_t encoderOverUnderFlow = 0; // Variable in case of Underflow or Ov
  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	if (htim->Instance == htim1.Instance)
-	{
-		static int16_t old;
-		static int16_t new = 0;
-		old = new;
-		new = (int16_t) __HAL_TIM_GET_COUNTER(&htim3); // Get the encoder value
-
-		char message[100];
-		int length = snprintf(message, 100, "%f\r\n", ( ((int16_t)(encoderOverUnderFlow*htim3.Init.Period)) + (new-old))*(60/24.0));
-		encoderOverUnderFlow = 0; // Resolve the under/overflow as it's been taken care of
-		HAL_UART_Transmit_DMA(&huart2, (uint8_t *) message, length);
+ if (htim->Instance == TIM1)
+ {
+	// Get counter
+	uint16_t CurrentCounter = __HAL_TIM_GET_COUNTER(&htim3);
+	// Calculate delta
+	int16_t delta = CurrentCounter - PREV_COUNTER;
+	if (delta > (INT16_MAX / 2)) {
+		// Counter wrapped in the positive direction
+		delta -= UINT16_MAX;
 	}
+	else if (delta < -(INT16_MAX / 2)) {
+		// Counter wrapped in the negative direction
+		delta += UINT16_MAX;
+	}
+
+	// Convert to rpms
+	float rpm = (delta * 60) / (REVOLUTION_COUNTS * SAMPLE_TIME);
+	// Save to buffer and send
+	snprintf((char*)txBuffer, sizeof(txBuffer), "Rotation speed: %+.2f RPM\n", rpm);
+	HAL_UART_Transmit_DMA(&huart2, txBuffer, sizeof(txBuffer));
+	PREV_COUNTER = CurrentCounter;
+ }
 }
+
 
 /* USER CODE END 0 */
 

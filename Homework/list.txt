@@ -29,3 +29,7 @@ HOMEWORK 8
 
 HOMEWORK 9
 	Transmit a letter to the LED matrix using SPI and a timer interrupt & Alternate between two letters (TIMER INTERRUPT, SPI DMA)
+
+HOMEWORK 10
+	Scan each column and read the keyboard using a timer interrupt (USART DMA, TIMER INTERRUPT)
+	Read the encoder position and send to the PC the rotation speed in rpm (USART DMA, TIMER INTERRUPT)
