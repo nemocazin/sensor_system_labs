@@ -2,10 +2,11 @@ HOMEWORK 1
 	General questions
 
 HOMEWORK 2
-	Speak on a microphone and light up a LED
-	PWM of 1Hz to blink a LED
+	Speak on a microphone and light up a LED (GPIO INTERRUPT)
+	PWM of 1Hz to blink a LED (PWM NO INTERRUPT)
 
 HOMEWORK 3
+	Play a song using the speaker when the microphone detects a loud sound (DELAY, IN WHILE)
 	Play a song using the speaker when the microphone detects a loud sound (INTERRUPT)
 
 HOMEWORK 4
@@ -13,8 +14,8 @@ HOMEWORK 4
 	Write on the LCD the name of each member of your group, one per line, in alphabetical order. (NO INTERRUPT)
 	
 HOMEWORK 5
-	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and sending the value to a remote terminal by using UART (TIMER INTERRUPT, NO UART INTERRUPT, ADC)
-	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and showing the value on the LCD (TIMER INTERRUPT, ADC)
+	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and sending the value to a remote terminal by using UART (UART DMA, ADC DMA TRIGGERED BY TIMER INTERRUPT)
+	Acquire the potentiometer voltage using a timer to trigger a conversion at a regular conversion rate of 1 Hz and showing the value on the LCD (ADC DMA TRIGGERED BY TIMER INTERRUPT)
 	Try sending from the PC via UART a string of variable length that is displayed on the LCD (NO INTERRUPT)
 
 HOMEWORK 6
@@ -33,3 +34,6 @@ HOMEWORK 9
 HOMEWORK 10
 	Scan each column and read the keyboard using a timer interrupt (USART DMA, TIMER INTERRUPT)
 	Read the encoder position and send to the PC the rotation speed in rpm (USART DMA, TIMER INTERRUPT)
+
+HOMEWORK 11
+	Make the IR Transmitter and an IR Receiver on the same board

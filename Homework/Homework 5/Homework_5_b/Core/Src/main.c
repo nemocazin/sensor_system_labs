@@ -45,6 +45,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 TIM_HandleTypeDef htim3;
 
@@ -57,6 +58,7 @@ UART_HandleTypeDef huart2;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_TIM3_Init(void);
@@ -67,23 +69,8 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-/**
- * @brief Callback function for TIM3
- *
- * @param htim The timer
- */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-   // Check if it's TIM3 that caused the interrupt
-   if (htim->Instance == TIM3)
-   {
-	  if(HAL_ADC_Start_IT(&hadc1) != HAL_OK) // Start the ADC conversion
-	  {
-		  Error_Handler();
-	  }
-   }
-}
-
+// We only use the first value but we need at least 2 value to initialize the ADC in DMA
+uint16_t ADCvalue[2];
 
 /**
  * @brief ADC Callback Function
@@ -94,11 +81,10 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  */
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-	uint32_t ADC_value = HAL_ADC_GetValue(hadc); // Get the value of the potentiometer
 	char message [64];
-	int length = snprintf(message, sizeof(message), "Voltage : %.2fV\r\n", (VOLTAGE * ADC_value) / RESOLUTION); // Put value in the message variable
+	snprintf(message, sizeof(message), "Voltage : %.2fV\r\n", (VOLTAGE * ADCvalue[0]) / RESOLUTION); // Put value in the message variable
 	lcd_println(message, TOP_ROW); // Put the message variable on top row of the LCD
-	lcd_drawBar((MAX_PIXEL_ROW * ADC_value) / RESOLUTION); // Put a variable bar on the bottom row of the LCD
+	lcd_drawBar((MAX_PIXEL_ROW * ADCvalue[0]) / RESOLUTION); // Put a variable bar on the bottom row of the LCD
 }
 
 /* USER CODE END 0 */
@@ -132,6 +118,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
@@ -145,6 +132,12 @@ int main(void)
   if(HAL_TIM_Base_Start_IT(&htim3) != HAL_OK)
   {
      Error_Handler();
+  }
+
+  // Start ADC
+  if(HAL_ADC_Start_DMA(&hadc1, (uint32_t *) ADCvalue, 2) != HAL_OK)
+  {
+  	 Error_Handler();
   }
 
   /* USER CODE END 2 */
@@ -232,11 +225,11 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ScanConvMode = DISABLE;
   hadc1.Init.ContinuousConvMode = DISABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
-  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
-  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_RISING;
+  hadc1.Init.ExternalTrigConv = ADC_EXTERNALTRIGCONV_T3_TRGO;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
@@ -279,7 +272,7 @@ static void MX_TIM3_Init(void)
   htim3.Instance = TIM3;
   htim3.Init.Prescaler = 8399;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 9999;
+  htim3.Init.Period = 4999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -333,6 +326,22 @@ static void MX_USART2_UART_Init(void)
   /* USER CODE BEGIN USART2_Init 2 */
 
   /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
 }
 

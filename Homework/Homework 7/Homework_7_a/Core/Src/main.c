@@ -22,6 +22,8 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdio.h>
+#include "string.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,13 +33,9 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define NO_DATA 			0
-#define ONE_BYTE			1
-#define TWO_BYTE			2
-#define EIGHT_BITS			8
-#define TRANSMIT_DELAY		100
-#define SIZE_STRING			100
-#define ONE_SECOND			1000
+#define GREEN_LED_PIN GPIOA, GPIO_PIN_5 // debug LED
+
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -48,14 +46,28 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 DMA_HandleTypeDef hdma_i2c1_rx;
-DMA_HandleTypeDef hdma_i2c1_tx;
 
-TIM_HandleTypeDef htim3;
+TIM_HandleTypeDef htim2;
 
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
+
+/* ----------- ADRESSES -----------	*/
+/* << operator shifts adds 1 0 to the right side of the bits:
+ * 0b01 << 1 = 0b010                */
+uint8_t LM75_DevAdress_Read   =  0b1001000 << 1; 	    // 0b is added in front to make clear that it is a binary number
+uint8_t LM75_DevAdress_Write  = (0b1001000 << 1) + 1; 	// 0b is added in front to make clear that it is a binary number
+
+// Internal Register where data is stored
+uint8_t LM75_TempAdress  = 0x00;       	      			// 0x is used bcs it is a hexadecimal value
+
+
+// Data buffer for temperature
+uint8_t tempBuffer[6];   // the temp register contains two times 8 bytes (MSB and LSB) [VERY IMPORTANT]
+int16_t temp;            // the final temperature value is 16 bit
+
 
 /* USER CODE END PV */
 
@@ -65,7 +77,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_TIM3_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -73,61 +85,104 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-uint8_t LM75_ADDR = 0b10010000;			// Address left-shifted by one
-uint8_t LM75_TEMP_ADDR = 0x00;			// Address of the pointer register
 
-/**
- * @brief Recover data from the temperature sensor by using I²C
- * 		    Send the data to a terminal using USART
- */
-void I2C_ReadSendTemp(void)
+/** Sign bit verification **/
+/** If 16th bit is equal to 1 = Negative value **/
+
+
+float GetTemp(uint8_t tempBuffer1, uint8_t tempBuffer2)
 {
-	char message[SIZE_STRING];
-	int message_length = 0;
-	uint8_t temperature_bytes[2];
-	uint16_t raw_temperature;
-	float temperature = 0;
+	// concat MSB and LSB
+	uint16_t temp = (tempBuffer1 << 8 | tempBuffer2);
 
-	if(HAL_I2C_Master_Receive_DMA(&hi2c1, LM75_ADDR+1, temperature_bytes, TWO_BYTE) == HAL_OK)
+	// check if negative
+	if (temp & 0x8000)
 	{
-		// Cast the two bytes acquired in one variable
-		raw_temperature = ((temperature_bytes[0] << EIGHT_BITS | temperature_bytes[1] )); // MSB and LSB assembling
-
-	/** Sign bit verification **/
-		/** If 16th bit is equal to 1 = Negative value **/
-		if (raw_temperature & 0x8000)  
-		{
-			raw_temperature |= 0x8000;  // Reverse all the bits except the 16th
-			temperature = ((raw_temperature + 0x0001) / 256.0);
-			message_length = snprintf(message, SIZE_STRING, "T: -%.3f\r\n", temperature);
-		}
-
-		/** Positive value **/
-		else 
-		{
-			temperature = raw_temperature / 256.0;
-			message_length = snprintf(message, SIZE_STRING, "T: %.3f\r\n", temperature);
-		}
+		// reverse the bits (negation)
+		temp |= 0x0000;
 	}
 
-	/** Error when receiving via I²C **/
-	else
-	{
-		message_length = snprintf(message, SIZE_STRING, "ERROR : Can't read from LM75 !!!\r\n");
-	}
+	// convert to temp
+	float temperature = temp / 256.0;
 
-	HAL_UART_Transmit_DMA(&huart2, (uint8_t *)message, message_length); // Send temperature to terminal using UART
+	return temperature;
+
 }
 
-/**
- * @brief Timer Callback function, calling the function to recover and send data
- */
+
+/* DMA Callback after receiving */
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	if (hi2c == &hi2c1)
+	{
+		// Toggle debug LED
+		HAL_GPIO_TogglePin(GREEN_LED_PIN);
+
+		static int bufferStatus = 0;
+
+		if (bufferStatus == 2)
+		{
+			// 1. Concatenate non corrupted data
+			if (tempBuffer[0] == tempBuffer[2] && tempBuffer[1] == tempBuffer[3])
+			{
+				// 2. convert to temperature
+				float temperature = GetTemp(tempBuffer[0], tempBuffer[1]);
+
+				char str[64];
+				snprintf(str, sizeof(str), "Temperature: %.3f°C\r\n", temperature);
+
+				// transmit to terminal by DMA
+				HAL_UART_Transmit_DMA(&huart2, (uint8_t*)str, strlen(str));
+
+				bufferStatus = 0;
+
+			}
+
+			else
+			{
+
+				float temperature = GetTemp(tempBuffer[4], tempBuffer[5]);
+
+				char str[64];
+				snprintf(str, sizeof(str), "Temperature: %.3f°C\r\n", temperature);
+
+				// transmit to terminal by DMA
+				HAL_UART_Transmit_DMA(&huart2, (uint8_t*)str, strlen(str));
+			}
+
+		}
+
+		else
+		{
+			bufferStatus++;
+			int idx = bufferStatus * 2;
+			HAL_I2C_Mem_Read_DMA(
+							&hi2c1,                 // Target device adr
+							LM75_DevAdress_Read,    // Device ADR
+							LM75_TempAdress,        // Internal ADR (TEMP regisster of LM75B)
+							1,		                // Size of mem adr of internal register (in bytes)
+							&tempBuffer[idx],         	// buffer to store the value
+							2						// Amount of data to be read: here 2 bytes (MSB + LSB)
+							);
+		}
+	}
+}
+
+/* TIMER CALLBACK */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-    if (htim->Instance == TIM3)
-    {
-    	I2C_ReadSendTemp();         // Read and send temperature every second
-    }
+	if (htim == &htim2)
+	{
+		// Reads an amount of data in non-blocking mode with DMA from a specific memory address.
+		HAL_I2C_Mem_Read_DMA(
+				&hi2c1,                 // Target device adr
+				LM75_DevAdress_Read,    // Device ADR
+				LM75_TempAdress,        // Internal ADR (TEMP regisster of LM75B)
+				1,		                // Size of mem adr of internal register (in bytes)
+				tempBuffer,         	// buffer to store the value
+				2						// Amount of data to be read: here 2 bytes (MSB + LSB)
+				);
+	}
 }
 
 /* USER CODE END 0 */
@@ -164,20 +219,14 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_I2C1_Init();
-  MX_TIM3_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  /** LM75 initialization -> set up pointer register to temperature sensor **/
-  if(HAL_I2C_Master_Transmit_DMA(&hi2c1, LM75_ADDR , &LM75_TEMP_ADDR, ONE_BYTE) != HAL_OK)
-  {
-	  Error_Handler();
-  }
+  // initiate the communication
+  HAL_I2C_Master_Transmit(&hi2c1, LM75_DevAdress_Read, &LM75_TempAdress, 1, 100); // 1 byte and 100 ms timeout
 
-  /** Start the timer (1 sec) **/
-  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK)
-  {
-      Error_Handler();
-  }
+  // Start the TIM in IT mode
+  HAL_TIM_Base_Start_IT(&htim2);
 
   /* USER CODE END 2 */
 
@@ -273,47 +322,47 @@ static void MX_I2C1_Init(void)
 }
 
 /**
-  * @brief TIM3 Initialization Function
+  * @brief TIM2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM3_Init(void)
+static void MX_TIM2_Init(void)
 {
 
-  /* USER CODE BEGIN TIM3_Init 0 */
+  /* USER CODE BEGIN TIM2_Init 0 */
 
-  /* USER CODE END TIM3_Init 0 */
+  /* USER CODE END TIM2_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM3_Init 1 */
+  /* USER CODE BEGIN TIM2_Init 1 */
 
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 8399;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 9999;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 8400-1;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 10000-1;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
   {
     Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM3_Init 2 */
+  /* USER CODE BEGIN TIM2_Init 2 */
 
-  /* USER CODE END TIM3_Init 2 */
+  /* USER CODE END TIM2_Init 2 */
 
 }
 
@@ -366,9 +415,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Stream6_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
-  /* DMA1_Stream7_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Stream7_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Stream7_IRQn);
 
 }
 

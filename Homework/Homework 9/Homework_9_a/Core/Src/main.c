@@ -68,8 +68,8 @@ UART_HandleTypeDef huart2;
 
 display matrix; // Matrix variable
 
-letter_t letterA =  GET_LETTER_BYTES(31, 36, 68,  36, 31);
-letter_t letterI =  GET_LETTER_BYTES(65, 65, 127, 65, 65);
+letter_t letterA = GET_LETTER_BYTES(31, 36, 68,  36, 31);
+letter_t letterI = GET_LETTER_BYTES(65, 65, 127, 65, 65);
 
 letter_t *alphabet [2] = {&letterA, &letterI}; // Just 2 letter but can be done with all the letters
 

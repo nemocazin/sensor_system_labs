@@ -125,17 +125,18 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
-  // Start TIM 3 (1sec)
+  /** Start TIM 3 (1sec) **/
   if(HAL_TIM_Base_Start(&htim3) != HAL_OK)
   {
   	 Error_Handler();
   }
 
-  // Start ADC
+  /** Start ADC **/
   if(HAL_ADC_Start_DMA(&hadc1, (uint32_t *) ADC_values, ADC_VALUES_SIZE) != HAL_OK)
   {
 	 Error_Handler();
   }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */

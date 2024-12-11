@@ -60,10 +60,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	switch(GPIO_Pin)
 	{
-		case GPIO_PIN_8:
+		case GPIO_PIN_8: 								// Pin of the microphone
 			static uint32_t lastInterruptTime = 0;
 			uint32_t currentTime = HAL_GetTick();
-			if((currentTime - lastInterruptTime) > 200)
+			if((currentTime - lastInterruptTime) > 200) // Condition to have only a light ON/OFF 1 time during a 200ms sound
 			{
 				HAL_GPIO_WritePin(GPIOA, GREEN_LED, led_state);
 				led_state = !led_state;

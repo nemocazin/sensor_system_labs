@@ -65,3 +65,8 @@ ENCODER
 	
 	Only for Timer 3
 	Connected to PC6 and PC7
+
+IR
+	
+	IR LED Transmitter (IR_DIV) = PB10 (TIM2_CH3)
+	IR Receiver (IR_IN) = PA10 (TIM1_CH3 / USART1_RX)

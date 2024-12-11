@@ -168,13 +168,13 @@ int main(void)
   MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
-  // Start TIM 3 (1 milli sec)
+  /** Start TIM 3 (1 milli sec) **/
   if(HAL_TIM_Base_Start(&htim3) != HAL_OK)
   {
 	 Error_Handler();
   }
 
-  // Start ADC
+  /** Start ADC **/
   if(HAL_ADC_Start_DMA(&hadc1, (uint32_t *) adcValues, FULL_ARRAY_SIZE) != HAL_OK)
   {
 	 Error_Handler();
