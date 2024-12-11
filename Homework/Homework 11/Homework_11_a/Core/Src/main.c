@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <string.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -31,21 +32,13 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define RCLK_PIN GPIOB, GPIO_PIN_6
+#define NUM_ROWS 4
+#define NUM_COLS 4
+#define DEBOUNCE_TIME 5
 
-#define PIN_C0 GPIOC, GPIO_PIN_11
-#define PIN_C1 GPIOC, GPIO_PIN_10
-#define PIN_C2 GPIOC, GPIO_PIN_9
-#define PIN_C3 GPIOC, GPIO_PIN_8
+#define ROW_PORT GPIOC
+#define COL_PORT GPIOC
 
-#define PIN_R0 GPIOC, GPIO_PIN_3
-#define PIN_R1 GPIOC, GPIO_PIN_2
-#define PIN_R2 GPIOC, GPIO_PIN_13
-#define PIN_R3 GPIOC, GPIO_PIN_12
-
-#define DEBOUNCE_TIME 2
-
-#define GREEN_LED_PIN GPIOA, GPIO_PIN_5
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -54,178 +47,181 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef hdma_spi1_tx;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim10;
+TIM_HandleTypeDef htim11;
 
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
+DMA_HandleTypeDef hdma_usart2_tx;
 
 /* USER CODE BEGIN PV */
 
-int column_index_rec = 0;
+uint8_t RX_byte = 0;
 
-uint8_t matrix[5][2] = {
-		{0, 16},  // y0 content {row}, address {column}
-		{0, 8},   // y1
-		{0, 4},   // y2
-		{0, 2},   // y3
-		{0, 1}
+
+uint8_t keyPressed[4][4];
+uint32_t press_ack[4][4];
+
+const char keyMap[4][4] = {
+    {'0', '1', '2', '3'},
+    {'4', '5', '6', '7'},
+    {'8', '9', 'A', 'B'},
+    {'C', 'D', 'E', 'F'}
 };
 
-uint8_t matrix_QM[5][2] = {
-		{32, 16},  // y0 content {row}, address {column}
-		{64, 8},   // y1
-		{69, 4},   // y2
-		{72, 2},   // y3
-		{48, 1}
+uint8_t col = 0;
+uint16_t row_pins [NUM_ROWS] = {GPIO_PIN_3,GPIO_PIN_2,GPIO_PIN_13,GPIO_PIN_12};
+
+uint8_t baud_flag = 0;
+
+//Different matrix
+uint8_t matrix[5][2];
+
+volatile uint8_t matrix_QM[5][2] = {
+	  {32,16},	// y0 content {row}, address {column}
+	  {64, 8},	// y1
+	  {69, 4},	// y2
+	  {72, 2},	// y3
+	  {48, 1}
 };
 
-uint8_t matrix_A[5][2] = {
-		{31, 16},  // y0 content {row}, address {column}
-		{36, 8},   // y1
-		{68, 4},   // y2
-		{36, 2},   // y3
-		{31, 1}
+
+volatile uint8_t matrix_A[5][2] = {
+	  {31,16},
+	  {36, 8},
+	  {68, 4},
+	  {36, 2},
+	  {31, 1}
 };
 
-uint8_t matrix_B[5][2] = {
-		{127, 16},  // y0 content {row}, address {column}
-		{73, 8},   // y1
-		{73, 4},   // y2
-		{73, 2},   // y3
-		{54, 1}
+volatile uint8_t matrix_B[5][2] = {
+	  {127,16},
+	  {73, 8},
+	  {73, 4},
+	  {85, 2},
+	  {99, 1}
+};
+volatile uint8_t matrix_C[5][2] = {
+	  {62,16},
+	  {65, 8},
+	  {65, 4},
+	  {65, 2},
+	  {34, 1}
 };
 
-uint8_t matrix_C[5][2] = {
-		{62, 16},  // y0 content {row}, address {column}
-		{65, 8},   // y1
-		{65, 4},   // y2
-		{65, 2},   // y3
-		{34, 1}
+volatile uint8_t matrix_D[5][2] = {
+	  {127,16},
+	  {65, 8},
+	  {65, 4},
+	  {65, 2},
+	  {62, 1}
 };
-
-uint8_t matrix_D[5][2] = {
-		{127, 16},  // y0 content {row}, address {column}
-		{65, 8},   // y1
-		{65, 4},   // y2
-		{65, 2},   // y3
-		{62, 1}
+volatile uint8_t matrix_E[5][2] = {
+	  {127,16},
+	  {73, 8},
+	  {73, 4},
+	  {73, 2},
+	  {9, 1}
 };
-
-uint8_t matrix_E[5][2] = {
-		{127, 16},  // y0 content {row}, address {column}
-		{73, 8},   // y1
-		{73, 4},   // y2
-		{73, 2},   // y3
-		{73, 1}
+volatile uint8_t matrix_F[5][2] = {
+	  {127,16},
+	  {72, 8},
+	  {72, 4},
+	  {72, 2},
+	  {72, 1}
 };
-
-uint8_t matrix_F[5][2] = {
-		{127, 16},  // y0 content {row}, address {column}
-		{72, 8},   // y1
-		{72, 4},   // y2
-		{72, 2},   // y3
-		{72, 1}
+volatile uint8_t matrix_0[5][2] = {
+	  {127,16},
+	  {65, 8},
+	  {65, 4},
+	  {65, 2},
+	  {127, 1}
 };
-
-uint8_t matrix_0[5][2] = {
-		{62, 16},  // y0 content {row}, address {column}
-		{113, 8},   // y1
-		{73, 4},   // y2
-		{71, 2},   // y3
-		{62, 1}
+volatile uint8_t matrix_1[5][2] = {
+	  {0,16},
+	  {33, 8},
+	  {127, 4},
+	  {1, 2},
+	  {0, 1}
 };
-
-uint8_t matrix_1[5][2] = {
-		{16, 16},  // y0 content {row}, address {column}
-		{33, 8},   // y1
-		{127, 4},   // y2
-		{1, 2},   // y3
-		{0, 1}
+volatile uint8_t matrix_2[5][2] = {
+	  {39,16},
+	  {73, 8},
+	  {73, 4},
+	  {73, 2},
+	  {49, 1}
 };
-
-uint8_t matrix_2[5][2] = {
-		{33, 16},  // y0 content {row}, address {column}
-		{67, 8},   // y1
-		{69, 4},   // y2
-		{73, 2},   // y3
-		{49, 1}
+volatile uint8_t matrix_3[5][2] = {
+	  {65,16},
+	  {73, 8},
+	  {73, 4},
+	  {73, 2},
+	  {127, 1}
 };
-
-uint8_t matrix_3[5][2] = {
-		{34, 16},  // y0 content {row}, address {column}
-		{65, 8},   // y1
-		{73, 4},   // y2
-		{73, 2},   // y3
-		{54, 1}
+volatile uint8_t matrix_4[5][2] = {
+	  {8,16},
+	  {24, 8},
+	  {40, 4},
+	  {127, 2},
+	  {8, 1}
 };
-
-uint8_t matrix_4[5][2] = {
-		{120, 16},  // y0 content {row}, address {column}
-		{8, 8},   // y1
-		{8, 4},   // y2
-		{8, 2},   // y3
-		{127, 1}
+volatile uint8_t matrix_5[5][2] = {
+	  {99,16},
+	  {81, 8},
+	  {73, 4},
+	  {73, 2},
+	  {79, 1}
 };
-
-uint8_t matrix_5[5][2] = {
-		{114, 16},  // y0 content {row}, address {column}
-		{81, 8},   // y1
-		{81, 4},   // y2
-		{81, 2},   // y3
-		{78, 1}
+volatile uint8_t matrix_6[5][2] = {
+	  {127,16},
+	  {73, 8},
+	  {73, 4},
+	  {73, 2},
+	  {15, 1}
 };
-
-uint8_t matrix_6[5][2] = {
-		{62, 16},  // y0 content {row}, address {column}
-		{73, 8},   // y1
-		{73, 4},   // y2
-		{73, 2},   // y3
-		{38, 1}
+volatile uint8_t matrix_7[5][2] = {
+	  {67,16},
+	  {68, 8},
+	  {72, 4},
+	  {80, 2},
+	  {96, 1}
 };
-
-uint8_t matrix_7[5][2] = {
-		{64, 16},  // y0 content {row}, address {column}
-		{64, 8},   // y1
-		{79, 4},   // y2
-		{80, 2},   // y3
-		{96, 1}
+volatile uint8_t matrix_8[5][2] = {
+	  {127,16},
+	  {73, 8},
+	  {73, 4},
+	  {73, 2},
+	  {127, 1}
 };
-
-uint8_t matrix_8[5][2] = {
-		{54, 16},  // y0 content {row}, address {column}
-		{73, 8},   // y1
-		{73, 4},   // y2
-		{73, 2},   // y3
-		{54, 1}
+volatile uint8_t matrix_9[5][2] = {
+	  {121,16},
+	  {73, 8},
+	  {73, 4},
+	  {73, 2},
+	  {127, 1}
 };
+uint8_t column_index = 0;
 
-uint8_t matrix_9[5][2] = {
-		{50, 16},  // y0 content {row}, address {column}
-		{73, 8},   // y1
-		{73, 4},   // y2
-		{73, 2},   // y3
-		{62, 1}
-};
-
-char map[16] = "FB73EA62D951C840"; // Keyboard characters definition
-
-uint32_t keypress[16];	// Array to keep track of
-uint32_t ack[16];		// Array for key press acknowledge
-
-int column_index = 0;
-
+uint8_t receive_flag = 0;
+volatile uint8_t char_to_show = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
-static void MX_TIM3_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_TIM10_Init(void);
+static void MX_TIM3_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM10_Init(void);
+static void MX_SPI1_Init(void);
+static void MX_TIM11_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -233,172 +229,77 @@ static void MX_USART1_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-char RX_byte = 0;
-char command = 0;
-int new_command = 0;
-
-int BaudElapsedFlag = 0;
-
-char RX_byte = 0;
-char RX_byte2 = 0;
-
-char UART_RX_byte;
-char UART_RX_flag;
-
-char string [32];
-
-uint8_t CharMAP[256][5][2] = {
-		{32, 16},  // y0 content {row}, address {column}
-		{64, 8},   // y1
-		{69, 4},   // y2
-		{72, 2},   // y3
-		{48, 1}
-};
-
-void initCharMAP (void)
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
-	for (int i = 0; i < 256; i++)
+	if(hspi->Instance == SPI1)
 	{
-		memcpy(CharMAP[i], matrix_QM, sizeof(matrix_QM));
-	}
-	memcpy(CharMAP[(uint8_t) '0'], matrix_0, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '1'], matrix_1, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '2'], matrix_2, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '3'], matrix_3, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '4'], matrix_4, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '5'], matrix_5, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '6'], matrix_6, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '7'], matrix_7, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '8'], matrix_8, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) '9'], matrix_9, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) 'A'], matrix_A, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) 'B'], matrix_B, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) 'C'], matrix_C, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) 'D'], matrix_D, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) 'E'], matrix_E, sizeof(matrix_0));
-	memcpy(CharMAP[(uint8_t) 'F'], matrix_F, sizeof(matrix_0));
-}
+		HAL_GPIO_TogglePin(GPIOB, GPIO_PIN_6);
 
-void showLetter (char digit)
-{
-	memcpy(matrix, CharMAP[(uint8_t) digit], sizeof(matrix));
-}
-
-void UART_IR_sendByte (char byte)
-{
-	// Enable baud rate interrupt timer
-	HAL_TIM_Base_Start_IT(&htim10);
-	// Send start bit ('0')
-	HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-	BaudElapsedFlag = 0;
-	while (BaudElapsedFlag == 0)
-	{
-		// Just wait
-	}
-
-	for (int bit_ctr = 0; bit_ctr < 8; bit_ctr++)
-	{
-		// The Flag has been reset in the periodElapsedCallback of TIM10
-		if((byte & (0x01<<bit_ctr)) == 0)
-		{
-			// We want to send a zero
-			// So we have to enable the PWM
-			HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3);
-		}
-		else
-		{
-			// We want to send a '1'
-			// So we stop the PWM
-			HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_3);
-		}
-		// Then we reset the flag
-		BaudElapsedFlag = 0;
-		while (BaudElapsedFlag == 0)
-		{
-			// Just wait
-		}
-	}
-
-	// We need to send the STOP bit '1'
-	HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_3);
-	while (BaudElapsedFlag == 0)
-	{
-		// Just wait
-	}
-	HAL_TIM_Base_Stop_IT(&htim10);
-	BaudElapsedFlag = 0;
-}
-
-void UART_IR_Send(char *payload, int size)
-{
-	for (int i = 0; i < size; i++)
-	{
-		UART_IR_sendByte(payload[i]);
-		HAL_Delay(1);
+		column_index++;
+		if(column_index > 4) column_index = 0;
 	}
 }
 
 
 
-/**
- * @brief Timers Callback
- */
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+void ShowLetter()
 {
-	// TIMER 10
-	if (htim == &htim10)
+	if(char_to_show != '\n')
 	{
-		BaudElapsedFlag = 1;
-	}
-
-	// TIMER 11
-	if (htim == &htim11)
-	{
-		// Read row pins - remember : active low !
-		// If pin read high -> key not pressed -> set counter to zero
-		// else -> increase counter to keep track of how long a key is pressed
-
-		if (HAL_GPIO_ReadPin(PIN_R0) == GPIO_PIN_SET){
-			keypress[4 * column_index] = 0;
-		} else {
-			keypress[4 * column_index]++;
-		}
-
-		if (HAL_GPIO_ReadPin(PIN_R1) == GPIO_PIN_SET){
-			keypress[4 * column_index+1] = 0;
-		} else {
-			keypress[4 * column_index+1]++;
-		}
-
-		if (HAL_GPIO_ReadPin(PIN_R2) == GPIO_PIN_SET){
-			keypress[4 * column_index+2] = 0;
-		} else {
-			keypress[4 * column_index+2]++;
-		}
-
-		if (HAL_GPIO_ReadPin(PIN_R3) == GPIO_PIN_SET){
-			keypress[4 * column_index+3] = 0;
-		} else {
-			keypress[4 * column_index+3]++;
-		}
-
-		column_index = (++column_index) % 4;
-
-		HAL_GPIO_WritePin(PIN_C0, (column_index==0)?GPIO_PIN_SET:GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(PIN_C1, (column_index==0)?GPIO_PIN_SET:GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(PIN_C2, (column_index==0)?GPIO_PIN_SET:GPIO_PIN_RESET);
-		HAL_GPIO_WritePin(PIN_C3, (column_index==0)?GPIO_PIN_SET:GPIO_PIN_RESET);
-	}
-
-	if (htim == &htim5)
-	{
-		HAL_GPIO_WritePin(RCLK_PIN, GPIO_PIN_SET);
-		if(++column_index_rec > 4)
+		switch(char_to_show)
 		{
-			column_index_rec = 0;
+			case '0':
+				memcpy(matrix, (const void *)matrix_0,sizeof(matrix));
+				break;
+			case '1':
+				memcpy(matrix, (const void *)matrix_1,sizeof(matrix));
+				break;
+			case '2':
+				memcpy(matrix, (const void *)matrix_2,sizeof(matrix));
+				break;
+			case '3':
+				memcpy(matrix, (const void *)matrix_3,sizeof(matrix));
+				break;
+			case '4':
+				memcpy(matrix, (const void *)matrix_4,sizeof(matrix));
+				break;
+			case '5':
+				memcpy(matrix, (const void *)matrix_5,sizeof(matrix));
+				break;
+			case '6':
+				memcpy(matrix, (const void *)matrix_6,sizeof(matrix));
+				break;
+			case '7':
+				memcpy(matrix, (const void *)matrix_7,sizeof(matrix));
+				break;
+			case '8':
+				memcpy(matrix, (const void *)matrix_8,sizeof(matrix));
+				break;
+			case '9':
+				memcpy(matrix, (const void *)matrix_9,sizeof(matrix));
+				break;
+			case 'A':
+				memcpy(matrix, (const void *)matrix_A,sizeof(matrix));
+				break;
+			case 'B':
+				memcpy(matrix, (const void *)matrix_B,sizeof(matrix));
+				break;
+			case 'C':
+				memcpy(matrix, (const void *)matrix_C,sizeof(matrix));
+				break;
+			case 'D':
+				memcpy(matrix, (const void *)matrix_D,sizeof(matrix));
+				break;
+			case 'E':
+				memcpy(matrix, (const void *)matrix_E,sizeof(matrix));
+				break;
+			case 'F':
+				memcpy(matrix, (const void *)matrix_F,sizeof(matrix));
+				break;
+			default:
+				memcpy(matrix, (const void *)matrix_QM,sizeof(matrix));
+				break;
 		}
-		HAL_GPIO_WritePin(RCLK_PIN, GPIO_PIN_RESET);
-		HAL_SPI_Transmit_DMA(&hspi1, matrix(column_matrix_rec), 2);
 	}
 }
 
@@ -409,19 +310,111 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  */
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if(huart == &huart1)
+	// UART1
+    if (huart->Instance == USART1)
+    {
+    	HAL_UART_Receive_IT(&huart1, &RX_byte, sizeof(RX_byte));
+		receive_flag =1;
+		char_to_show = RX_byte;
+
+        HAL_UART_Transmit_DMA(&huart2, &RX_byte, sizeof(RX_byte));
+    }
+
+    // UART2
+    if(huart->Instance == USART2)
+    {
+        HAL_UART_Receive_IT(&huart2, &RX_byte, 1);
+        receive_flag =1;
+        char_to_show = RX_byte;
+	}
+}
+
+
+
+/**
+ * @brief Send the byte via IR transmitter
+ */
+void UART_IR_Transmit(uint8_t tx_byte)
+{
+	// Enable baud rate interrupt timer
+	HAL_TIM_Base_Start_IT(&htim3);
+
+    // Send the start bit (0)
+    HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3); // Enable PWM
+    while (baud_flag == 0); // Wait for one bit period
+    baud_flag = 0;
+
+    // Send 8 data bits
+	for(uint8_t bit_index = 0; bit_index <8 ; bit_index++)
 	{
-		HAL_UART_Receive_IT(&huart1, &RX_byte, 1);
-		command = RX_byte;
-		new_command = 1;
+		// The Flag has been reset in the periodElapsedCallback of TIM10
+		if(tx_byte &(0x01 << bit_index))
+		{
+			// We want to send a '1'
+			// So we stop the PWM
+			HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_3); // UART reading 1
+		}
+		else
+		{
+			// We want to send a zero
+			// So we have to enable the PWM
+			HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_3); // UART reading 0
+		}
+	    while (baud_flag == 0){} // Wait for one bit period
+	    // Then we reset the flag
+		baud_flag = 0;
 	}
 
-	if(huart == &huart2)
+	// We need to send the STOP bit '1'
+	HAL_TIM_PWM_Stop(&htim2, TIM_CHANNEL_3); // UART reading 1
+	while (baud_flag == 0); // Wait for one bit period
+	baud_flag = 0;
+
+	HAL_TIM_Base_Stop_IT(&htim3);
+}
+
+
+
+/**
+ * @brief Timers Callback
+ */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	// TIMER 10
+    if(htim->Instance == TIM10)
+    {
+    	// Read row pins -
+     	 for(uint8_t row = 0; row < 4; row++)
+     	 {
+     		 GPIO_PinState state = HAL_GPIO_ReadPin(ROW_PORT, row_pins[row]);
+   			 if(state == GPIO_PIN_SET)
+   			 {
+				 keyPressed[row][col] = 0;
+				 press_ack[row][col] = 0;
+			 }
+			 else // Key pressed
+			 {
+				 keyPressed[row][col]++;
+			 }
+       	 }
+       	 col = (col + 1) % 4;
+       	 HAL_GPIO_WritePin(COL_PORT, GPIO_PIN_8, (col== 0) ? GPIO_PIN_SET:GPIO_PIN_RESET);
+       	 HAL_GPIO_WritePin(COL_PORT, GPIO_PIN_9, (col== 1) ? GPIO_PIN_SET:GPIO_PIN_RESET);
+       	 HAL_GPIO_WritePin(COL_PORT, GPIO_PIN_10, (col== 2) ? GPIO_PIN_SET:GPIO_PIN_RESET);
+       	 HAL_GPIO_WritePin(COL_PORT, GPIO_PIN_11, (col== 3) ? GPIO_PIN_SET:GPIO_PIN_RESET);
+    }
+
+    // TIMER 3 = Baudrate
+	if (htim->Instance == TIM3) // 2400 bps bit-timing interrupt
 	{
-		HAL_UART_Receive_IT(&huart2, &RX_byte2, 1);
-		command = RX_byte2;
-		new_command = 1;
-	}
+		baud_flag = 1;
+    }
+
+	// TIMER 11 = for MATRIX LED
+    if(htim->Instance == TIM11)
+    {
+    	HAL_SPI_Transmit_DMA(&hspi1, (uint8_t *)matrix[column_index], sizeof(matrix[column_index]));
+    }
 }
 
 /* USER CODE END 0 */
@@ -455,21 +448,32 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_USART2_UART_Init();
-  MX_TIM3_Init();
   MX_TIM2_Init();
-  MX_TIM10_Init();
+  MX_TIM3_Init();
   MX_USART1_UART_Init();
+  MX_TIM10_Init();
+  MX_SPI1_Init();
+  MX_TIM11_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_TIM_Base_Start_IT(&htim11);
-  HAL_TIM_Base_Start_IT(&htim5);
+  //HAL_UART_Receive_IT(&huart2, &RX_byte, 1); // for debugging
 
-  initCharMAP();
+  HAL_UART_Receive_IT(&huart1, &RX_byte, 1); // Start reception'
 
-  HAL_UART_Receive_IT(&huart1, &RX_byte, 1);
 
-  HAL_UART_Receive_IT(&huart2, &RX_byte2, 1);
+  if(HAL_TIM_Base_Start_IT(&htim10) != HAL_OK)
+  {
+   	  Error_Handler();
+  }
+
+  if(HAL_TIM_Base_Start_IT(&htim11) != HAL_OK)
+  {
+   	  Error_Handler();
+  }
+
+  memcpy(matrix, (const void *)matrix_0,sizeof(matrix));
 
   /* USER CODE END 2 */
 
@@ -477,31 +481,27 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(new_command)
+	  if(receive_flag)
 	  {
-		  showLetter(command);
-		  new_command = 0;
+		  ShowLetter();
+		  receive_flag = 0;
 	  }
 
-	  for (int i = 0; i < 16; i++)
+	  for(uint8_t i=0; i<4; i++)
 	  {
-		  if (keypress[i] > DEBOUNCE_TIME)
+		  for(uint8_t j=0; j<4; j++)
 		  {
-			  // We wait for a minimum duration of keypress to avoid bouncing
-			  if(ack[i] == 0)
+			  if (keyPressed[i][j] > DEBOUNCE_TIME)
 			  {
-				  // if we have yet to acknowledge this event
-				  // that means it is a new valid keypress
-				  UART_IR_sendByte(map[i]);
-				  // Then we ack this keypress so later we ignore it
-				  // if it remains pressed
-				  ack[i] = 1;
-;			  }
-		  }
-		  else
-		  {
-			  // The key is released => we remove the ack
-			  ack[i] = 0;
+				  if (press_ack[i][j] == 0) // New valid keypress
+				  {
+					  press_ack[i][j] = 1;     // Mark key as processed
+					  UART_IR_Transmit(keyMap[i][j]);
+
+					  //for debugging
+					  //HAL_UART_Transmit_DMA(&huart2, &keyMap[i][j], sizeof(keyMap[i][j]));
+				}
+			  }
 		  }
 	  }
     /* USER CODE END WHILE */
@@ -558,6 +558,44 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief SPI1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI1_Init(void)
+{
+
+  /* USER CODE BEGIN SPI1_Init 0 */
+
+  /* USER CODE END SPI1_Init 0 */
+
+  /* USER CODE BEGIN SPI1_Init 1 */
+
+  /* USER CODE END SPI1_Init 1 */
+  /* SPI1 parameter configuration*/
+  hspi1.Instance = SPI1;
+  hspi1.Init.Mode = SPI_MODE_MASTER;
+  hspi1.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_4;
+  hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi1.Init.CRCPolynomial = 10;
+  if (HAL_SPI_Init(&hspi1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI1_Init 2 */
+
+  /* USER CODE END SPI1_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -602,7 +640,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 1105;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
@@ -635,9 +673,9 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 9;
+  htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 9;
+  htim3.Init.Period = 34999;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -649,7 +687,7 @@ static void MX_TIM3_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
   {
@@ -677,9 +715,9 @@ static void MX_TIM10_Init(void)
 
   /* USER CODE END TIM10_Init 1 */
   htim10.Instance = TIM10;
-  htim10.Init.Prescaler = 84-1;
+  htim10.Init.Prescaler = 83;
   htim10.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim10.Init.Period = 5000-1;
+  htim10.Init.Period = 4999;
   htim10.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim10.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim10) != HAL_OK)
@@ -689,6 +727,37 @@ static void MX_TIM10_Init(void)
   /* USER CODE BEGIN TIM10_Init 2 */
 
   /* USER CODE END TIM10_Init 2 */
+
+}
+
+/**
+  * @brief TIM11 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM11_Init(void)
+{
+
+  /* USER CODE BEGIN TIM11_Init 0 */
+
+  /* USER CODE END TIM11_Init 0 */
+
+  /* USER CODE BEGIN TIM11_Init 1 */
+
+  /* USER CODE END TIM11_Init 1 */
+  htim11.Instance = TIM11;
+  htim11.Init.Prescaler = 83;
+  htim11.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim11.Init.Period = 99;
+  htim11.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim11.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim11) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM11_Init 2 */
+
+  /* USER CODE END TIM11_Init 2 */
 
 }
 
@@ -708,11 +777,11 @@ static void MX_USART1_UART_Init(void)
 
   /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
-  huart1.Init.BaudRate = 115200;
+  huart1.Init.BaudRate = 2400;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
   huart1.Init.StopBits = UART_STOPBITS_1;
   huart1.Init.Parity = UART_PARITY_NONE;
-  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.Mode = UART_MODE_RX;
   huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart1.Init.OverSampling = UART_OVERSAMPLING_16;
   if (HAL_UART_Init(&huart1) != HAL_OK)
@@ -759,6 +828,26 @@ static void MX_USART2_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream6_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream6_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream6_IRQn);
+  /* DMA2_Stream3_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream3_IRQn, 1, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream3_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -776,10 +865,10 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_6, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PC13 PC2 PC3 PC12 */
   GPIO_InitStruct.Pin = GPIO_PIN_13|GPIO_PIN_2|GPIO_PIN_3|GPIO_PIN_12;
@@ -787,19 +876,19 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pins : PC8 PC9 PC10 PC11 */
   GPIO_InitStruct.Pin = GPIO_PIN_8|GPIO_PIN_9|GPIO_PIN_10|GPIO_PIN_11;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : PB6 */
+  GPIO_InitStruct.Pin = GPIO_PIN_6;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */

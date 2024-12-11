@@ -36,4 +36,4 @@ HOMEWORK 10
 	Read the encoder position and send to the PC the rotation speed in rpm (USART DMA, TIMER INTERRUPT)
 
 HOMEWORK 11
-	Make the IR Transmitter and an IR Receiver on the same board
+	Make the IR Transmitter and an IR Receiver on the same board (TIMER INTERRUPT, UART DMA, SPI DMA)

@@ -61,7 +61,7 @@ main-build: Homework_11_a.elf secondary-outputs
 
 # Tool invocations
 Homework_11_a.elf Homework_11_a.map: $(OBJS) $(USER_OBJS) C:\Users\lenem\Desktop\sensor_system_labs\Homework\Homework\ 11\Homework_11_a\STM32F401RETX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Homework_11_a.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\lenem\Desktop\sensor_system_labs\Homework\Homework 11\Homework_11_a\STM32F401RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Homework_11_a.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -u _printf_float -Wl,--start-group -lc -lm -Wl,--end-group
+	arm-none-eabi-gcc -o "Homework_11_a.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\lenem\Desktop\sensor_system_labs\Homework\Homework 11\Homework_11_a\STM32F401RETX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Homework_11_a.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
