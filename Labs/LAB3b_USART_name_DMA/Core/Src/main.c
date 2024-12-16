@@ -59,6 +59,15 @@ static void MX_USART2_UART_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+/* Callback function for transmission complete */
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if (huart->Instance == USART2)
+	{
+		// Transmission complete, could do something here if needed
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -94,15 +103,6 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  /* Callback function for transmission complete */
-  void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-  {
-    if (huart->Instance == USART2)
-    {
-      // Transmission complete, could do something here if needed
-    }
-  }
-
   char string[] = "CAZIN Némo 2002\n";
 
   /* USER CODE END 2 */
@@ -112,7 +112,7 @@ int main(void)
   while (1)
   {
 	  HAL_UART_Transmit_DMA(&huart2, (uint8_t*)string, strlen(string));
-	  HAL_Delay(1000);  // Pause pour que la transmission se termine
+	  HAL_Delay(1000);  // Delay for ending transmission
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

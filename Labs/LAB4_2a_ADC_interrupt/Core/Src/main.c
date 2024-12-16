@@ -61,6 +61,7 @@ static void MX_ADC1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
 /** ADC Callback Function **/
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
@@ -69,6 +70,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	int length = snprintf(message, sizeof(message), "Voltage : %.2fV\r\n", (VOLTAGE*ADC_value)/RESOLUTION);
 	HAL_UART_Transmit(&huart2, (uint8_t*)message, length, 100);
 }
+
 /* USER CODE END 0 */
 
 /**
@@ -110,11 +112,11 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	if(HAL_ADC_Start_IT(&hadc1) != HAL_OK)
-	{
-		Error_Handler();
-	}
-	HAL_Delay(ONE_SECOND);
+	  if(HAL_ADC_Start_IT(&hadc1) != HAL_OK)
+	  {
+		  Error_Handler();
+	  }
+	  HAL_Delay(ONE_SECOND);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

@@ -91,7 +91,7 @@ int main(void)
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
-	char string[] = "CAZIN Némo 2002\n";
+  char string[] = "CAZIN Némo 2002\n";
 
   /* USER CODE END 2 */
 

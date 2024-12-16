@@ -108,8 +108,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	if (HAL_ADC_PollForConversion(&hadc1, 10) == HAL_OK)
-	{
 		uint32_t ADC_value = HAL_ADC_GetValue(&hadc1); // Get potentiometer value
 		char message [8];
 		int length = snprintf(message, sizeof(message), "%.3f V\n", (VOLTAGE * ADC_value)/RESOLUTION);
@@ -119,8 +117,7 @@ int main(void)
 		{
 			Error_Handler();
 		}
-	}
-	HAL_Delay(ONE_SECOND);
+		HAL_Delay(ONE_SECOND);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
